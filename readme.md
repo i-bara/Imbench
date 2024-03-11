@@ -30,6 +30,11 @@ Pass the above hyper-parameters to `main.py`. For example:
 
 ```
 python main.py --dataset Cora --data_path dataset/ --imb_ratio 100 --net GCN --gdc ppr
+python main.py --dataset CiteSeer --data_path dataset/ --imb_ratio 100 --net GCN --gdc ppr --max
+python main.py --dataset PubMed --data_path dataset/ --imb_ratio 100 --net GCN --gdc none --max --no_mask
+python main.py --dataset Amazon-Photo --data_path dataset/ --imb_ratio 20 --net SAGE --gdc ppr --max
+python main.py --dataset Amazon-Computers --data_path dataset/ --imb_ratio 20 --net SAGE --gdc ppr
+python main.py --dataset Coauthor-CS --data_path dataset/ --imb_ratio 20 --net SAGE --gdc ppr --max
 ```
 
 ## License
