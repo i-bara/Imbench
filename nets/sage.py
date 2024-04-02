@@ -156,6 +156,36 @@ class GraphSAGEX(nn.Module):
 
         return x
 
+
+class SAGE(nn.Module):
+    def __init__(self, n_layer, input_dim, feat_dim, n_cls):
+        super(SAGE, self).__init__()
+        self.n_layer = n_layer
+        self.n_cls = n_cls
+        self.conv1 = nn.ModuleList()
+        for i in range(n_layer):
+            in_channels = input_dim if i == 0 else feat_dim
+            self.conv1.append(SAGEConv(in_channels, feat_dim))
+
+        self.classifier = torch.nn.Linear(feat_dim, n_cls)
+
+        self.reg_params = list(self.conv1.parameters())
+        self.non_reg_params = list(self.classifier.parameters())
+
+
+    def forward(self, x, edge_index, edge_weight):
+        ori_n_edge = edge_index.size(1)
+        for i, conv in enumerate(self.conv1):
+            x = conv(x, edge_index, edge_weight)
+            x = x.relu()
+
+        x = F.dropout(x, 0.5, training=self.training)
+        x = self.classifier(x)
+
+        return x
+
+
+
 def create_sage(nfeat, nhid, nclass, dropout, nlayer):
     if nlayer == 1:
         model = GraphSAGE1(nfeat, nhid, nclass, dropout,nlayer)

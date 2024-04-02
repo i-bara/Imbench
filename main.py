@@ -7,47 +7,109 @@ import torch.nn.functional as F
 
 from args import parse_args
 from data_utils import get_dataset, get_idx_info, make_longtailed_data_remove, get_step_split
-from gens import sampling_node_source, neighbor_sampling, duplicate_neighbor, saliency_mixup, sampling_idx_individual_dst
+from gens import sampling_node_source, neighbor_sampling, neighbor_sampling_ens, duplicate_neighbor, saliency_mixup, saliency_mixup_ens, sampling_idx_individual_dst, MeanAggregation_ens, src_smote
 from nets import create_gcn, create_gat, create_sage
 from utils import CrossEntropy
 from sklearn.metrics import balanced_accuracy_score, f1_score
 from neighbor_dist import get_PPR_adj, get_heat_adj, get_ins_neighbor_dist
 
+
+
 import warnings
 warnings.filterwarnings("ignore")
+
+
+# ens
+
+def backward_hook(module, grad_input, grad_output):
+    global saliency
+    saliency = grad_input[0].data
+
+
+aggregator = MeanAggregation_ens()
+
+
+# public
 
 def train():
     global class_num_list, idx_info, prev_out
     global data_train_mask, data_val_mask, data_test_mask
     model.train()
-    optimizer.zero_grad()        
-    if epoch > args.warmup:
-        
-        # identifying source samples
-        prev_out_local = prev_out[train_idx]
-        sampling_src_idx, sampling_dst_idx = sampling_node_source(class_num_list, prev_out_local, idx_info_local, train_idx, args.tau, args.max, args.no_mask) 
-        
-        # semimxup
-        new_edge_index = neighbor_sampling(data.x.size(0), data.edge_index[:,train_edge_mask], sampling_src_idx, neighbor_dist_list)
-        beta = torch.distributions.beta.Beta(1, 100)
-        lam = beta.sample((len(sampling_src_idx),) ).unsqueeze(1)
-        new_x = saliency_mixup(data.x, sampling_src_idx, sampling_dst_idx, lam)
+    optimizer.zero_grad()
 
-    else:
+    if args.method == 'sha':
+
+        if epoch > args.warmup:
+            
+            # identifying source samples
+            prev_out_local = prev_out[train_idx]
+            sampling_src_idx, sampling_dst_idx = sampling_node_source(class_num_list, prev_out_local, idx_info_local, train_idx, args.tau, args.max, args.no_mask) 
+            
+            # semimxup
+            new_edge_index = neighbor_sampling(data.x.size(0), data.edge_index[:,train_edge_mask], sampling_src_idx, neighbor_dist_list)
+            beta = torch.distributions.beta.Beta(1, 100)
+            lam = beta.sample((len(sampling_src_idx),) ).unsqueeze(1)
+            new_x = saliency_mixup(data.x, sampling_src_idx, sampling_dst_idx, lam)
+
+        else:
+            sampling_src_idx, sampling_dst_idx = sampling_idx_individual_dst(class_num_list, idx_info, device)
+            beta = torch.distributions.beta.Beta(2, 2)
+            lam = beta.sample((len(sampling_src_idx),) ).unsqueeze(1)
+            new_edge_index = duplicate_neighbor(data.x.size(0), data.edge_index[:,train_edge_mask], sampling_src_idx)
+            new_x = saliency_mixup(data.x, sampling_src_idx, sampling_dst_idx, lam)
+
+        output = model(new_x, new_edge_index)
+        prev_out = (output[:data.x.size(0)]).detach().clone()
+        add_num = output.shape[0] - data_train_mask.shape[0]
+        new_train_mask = torch.ones(add_num, dtype=torch.bool, device= data.x.device)
+        new_train_mask = torch.cat((data_train_mask, new_train_mask), dim =0)
+        _new_y = data.y[sampling_src_idx].clone()
+        new_y = torch.cat((data.y[data_train_mask], _new_y),dim =0)
+        criterion(output[new_train_mask], new_y).backward()
+
+    elif args.method == 'ens':
+        # Hook saliency map of input features
+        model.conv1.temp_weight.register_backward_hook(backward_hook)
+
+        # Sampling source and destination nodes
         sampling_src_idx, sampling_dst_idx = sampling_idx_individual_dst(class_num_list, idx_info, device)
         beta = torch.distributions.beta.Beta(2, 2)
         lam = beta.sample((len(sampling_src_idx),) ).unsqueeze(1)
-        new_edge_index = duplicate_neighbor(data.x.size(0), data.edge_index[:,train_edge_mask], sampling_src_idx)
-        new_x = saliency_mixup(data.x, sampling_src_idx, sampling_dst_idx, lam)
+        ori_saliency = saliency[:data.x.shape[0]] if (saliency != None) else None
 
-    output = model(new_x, new_edge_index)
-    prev_out = (output[:data.x.size(0)]).detach().clone()
-    add_num = output.shape[0] - data_train_mask.shape[0]
-    new_train_mask = torch.ones(add_num, dtype=torch.bool, device= data.x.device)
-    new_train_mask = torch.cat((data_train_mask, new_train_mask), dim =0)
-    _new_y = data.y[sampling_src_idx].clone()
-    new_y = torch.cat((data.y[data_train_mask], _new_y),dim =0)
-    criterion(output[new_train_mask], new_y).backward()
+        # Augment nodes
+        if epoch > args.warmup:
+            with torch.no_grad():
+                prev_out = aggregator(prev_out, data.edge_index[:,train_edge_mask])
+                prev_out = F.softmax(prev_out / args.tau, dim=1).detach().clone()
+            new_edge_index, dist_kl = neighbor_sampling_ens(data.x.size(0), data.edge_index[:,train_edge_mask], sampling_src_idx, sampling_dst_idx,
+                                        neighbor_dist_list, prev_out, train_node_mask)
+            new_x = saliency_mixup_ens(data.x, sampling_src_idx, sampling_dst_idx, lam, ori_saliency, dist_kl = dist_kl, keep_prob=args.keep_prob)
+        else:
+            new_edge_index = duplicate_neighbor(data.x.size(0), data.edge_index[:,train_edge_mask], sampling_src_idx)
+            dist_kl, ori_saliency = None, None
+            new_x = saliency_mixup_ens(data.x, sampling_src_idx, sampling_dst_idx, lam, ori_saliency, dist_kl = dist_kl)
+        new_x.requires_grad = True
+
+        # Get predictions
+        output = model(new_x, new_edge_index, None)
+        prev_out = (output[:data.x.size(0)]).detach().clone() # logit propagation
+
+        ## Train_mask modification ##
+        add_num = output.shape[0] - data_train_mask.shape[0]
+        new_train_mask = torch.ones(add_num, dtype=torch.bool, device= data.x.device)
+        new_train_mask = torch.cat((data_train_mask, new_train_mask), dim =0)
+
+        ## Label modification ##
+        new_y = data.y[sampling_src_idx].clone()
+        new_y = torch.cat((data.y[data_train_mask], new_y),dim =0)
+
+        ## Compute Loss ##
+        criterion(output[new_train_mask], new_y).backward()
+
+    else: ## Vanilla Train ##
+        output = model(data.x, data.edge_index[:,train_edge_mask], None)
+        criterion(output[data_train_mask], data.y[data_train_mask]).backward()
 
     with torch.no_grad():
         model.eval()
@@ -75,7 +137,16 @@ def test():
     return accs, baccs, f1s
 
 args = parse_args()
+
+# if args.method not in ['vanilla', 'ens', 'sha']:
+#     smote()
+#     exit()
+
+# if args.method == 'smote':
+#     args.epoch = 1200  # smote needs more epoches to converge
+
 seed = args.seed
+# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 device = torch.device(args.device)
 
 torch.cuda.empty_cache()
@@ -127,6 +198,8 @@ elif args.dataset in ['Coauthor-CS', 'Amazon-Computers', 'Amazon-Photo']:
     data_val_mask[valid_idx] = True
     data_test_mask[test_idx] = True
     train_idx = data_train_mask.nonzero().squeeze()
+    train_node_mask = torch.zeros(data.x.shape[0]).bool().to(device)  # 4.2 Fixed: Add train_node_mask
+    train_node_mask[train_idx] = True
     train_edge_mask = torch.ones(data.edge_index.shape[1], dtype=torch.bool)
 
     class_num_list = [len(item) for item in train_node]
@@ -141,6 +214,9 @@ local2global = {i:train_idx_list[i] for i in range(len(train_idx_list))}
 global2local = dict([val, key] for key, val in local2global.items())
 idx_info_list = [item.cpu().tolist() for item in idx_info]
 idx_info_local = [torch.tensor(list(map(global2local.get, cls_idx))) for cls_idx in idx_info_list]
+
+if args.method == 'smote':
+    data = src_smote(data)
 
 if args.gdc=='ppr':
     neighbor_dist_list = get_PPR_adj(data.x, data.edge_index[:,train_edge_mask], alpha=0.05, k=128, eps=None)
@@ -178,5 +254,4 @@ for epoch in tqdm.tqdm(range(args.epoch)):
         test_bacc = baccs[2]
         test_f1 = f1s[2]
 
-print('acc: {:.2f}, bacc: {:.2f}, f1: {:.2f}'.format(test_acc*100, test_bacc*100, test_f1*100))
-
+print('acc: {:.9f}, bacc: {:.9f}, f1: {:.9f}'.format(test_acc*100, test_bacc*100, test_f1*100))

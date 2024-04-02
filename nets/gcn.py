@@ -250,7 +250,41 @@ class StandGCNX(nn.Module):
         return x
 
 
+class GCN(torch.nn.Module):
+    def __init__(self, n_layer, input_dim, feat_dim, n_cls, \
+                    normalize=True, is_add_self_loops=True):
+        super(GCN, self).__init__()
+
+        self.n_cls = n_cls
+        self.n_layer = n_layer
+        self.conv1 = [GCNConv(input_dim, feat_dim, cached=False, normalize=normalize)]
+        self.conv1 += [GCNConv(feat_dim, feat_dim, cached=False, normalize=normalize)
+            for _ in range(n_layer-1)]
+        self.conv1 = torch.nn.ModuleList(self.conv1)
+
+        self.classifier = torch.nn.Linear(feat_dim, n_cls)
+
+        self.reg_params = list(self.conv1.parameters())
+        self.non_reg_params = list(self.classifier.parameters())
+
+        self.is_add_self_loops = is_add_self_loops
+
+
+    def forward(self, x, edge_index, edge_weight=None):
+
+        for i in range(self.n_layer):
+            x, edge_index = self.conv1[i](x, edge_index, edge_weight, is_add_self_loops=self.is_add_self_loops)
+            x = F.relu(x)
+
+        x = F.dropout(x, training=self.training, p =0.5)
+        x = self.classifier(x)
+
+        return x
+
+
 def create_gcn(nfeat, nhid, nclass, dropout, nlayer):
+    # return GCN(n_layer=nlayer, input_dim=nfeat, feat_dim=nhid, n_cls=nclass, \
+    #                 normalize=True, is_add_self_loops=True)
     if nlayer == 1:
         model = StandGCN1(nfeat, nhid, nclass, dropout,nlayer)
     elif nlayer == 2:

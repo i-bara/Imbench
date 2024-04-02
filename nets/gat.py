@@ -266,6 +266,38 @@ class StandGATX(nn.Module):
         return x
 
 
+class GAT(torch.nn.Module):
+    def __init__(self, n_layer, input_dim, feat_dim, n_cls, n_head, \
+                    is_add_self_loops=True):
+        super(GAT, self).__init__()
+
+        self.n_cls = n_cls
+        self.n_layer = n_layer
+        self.conv1 = [GATConv(input_dim, feat_dim//n_head, heads=n_head, dropout=0.6)]
+        self.conv1 += [GATConv(feat_dim, feat_dim//n_head, heads=n_head, dropout=0.6)
+            for i in range(1,n_layer)]
+        self.conv1 = torch.nn.ModuleList(self.conv1)
+
+        self.classifier = torch.nn.Linear(feat_dim, n_cls)
+
+        self.reg_params = list(self.conv1.parameters())
+        self.non_reg_params = self.classifier.parameters()
+
+        self.is_add_self_loops = is_add_self_loops
+
+
+    def forward(self, x, edge_index, edge_weight):
+
+        for i in range(self.n_layer):
+            x, edge_index= self.conv1[i](x, edge_index, is_add_self_loops=self.is_add_self_loops)
+            x = F.elu(x)
+
+        x = F.dropout(x, p=0.5, training=self.training)
+        x = self.classifier(x)
+
+        return x
+
+
 def create_gat(nfeat, nhid, nclass, dropout, nlayer):
     if nlayer == 1:
         model = StandGAT1(nfeat, nhid, nclass, dropout,nlayer)
