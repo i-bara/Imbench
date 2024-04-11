@@ -164,7 +164,23 @@ data = dataset[0]
 n_cls = data.y.max().item() + 1
 data = data.to(device)
 
+print(args.dataset)
+idx_train = torch.tensor(range(data.train_mask.shape[0]), device=data.train_mask.device)[data.train_mask]
+idx_val = torch.tensor(range(data.val_mask.shape[0]), device=data.val_mask.device)[data.val_mask]
+idx_test = torch.tensor(range(data.test_mask.shape[0]), device=data.test_mask.device)[data.test_mask]
+print(idx_train.shape[0], idx_val.shape[0], idx_test.shape[0])
+print(idx_train, idx_val, idx_test)
+
+for i in range(7):
+    new_chosen = idx_train[(labels==(c_largest-i))[idx_train]]
+
+
 if args.dataset in ['Cora', 'CiteSeer', 'PubMed']:
+    idx_train = torch.tensor(range(data.train_mask.shape[0]), device=data.train_mask.device)[data.train_mask]
+    idx_val = torch.tensor(range(data.val_mask.shape[0]), device=data.val_mask.device)[data.val_mask]
+    idx_test = torch.tensor(range(data.test_mask.shape[0]), device=data.test_mask.device)[data.test_mask]
+    print(idx_train.shape[0], idx_val.shape[0], idx_test.shape[0])
+    print(idx_train, idx_val, idx_test)
     data_train_mask, data_val_mask, data_test_mask = data.train_mask.clone(), data.val_mask.clone(), data.test_mask.clone()
     stats = data.y[data_train_mask]
     n_data = []
@@ -202,6 +218,8 @@ elif args.dataset in ['Coauthor-CS', 'Amazon-Computers', 'Amazon-Photo']:
     train_node_mask[train_idx] = True
     train_edge_mask = torch.ones(data.edge_index.shape[1], dtype=torch.bool)
 
+    data.train_mask, data.val_mask, data.test_mask = data_train_mask.clone(), data_val_mask.clone(), data_test_mask.clone()  # 4.2 Fixed: Add train_node_mask
+
     class_num_list = [len(item) for item in train_node]
     idx_info = [torch.tensor(item) for item in train_node]
 
@@ -217,6 +235,10 @@ idx_info_local = [torch.tensor(list(map(global2local.get, cls_idx))) for cls_idx
 
 if args.method == 'smote':
     data = src_smote(data)
+    data_train_mask = torch.cat((data_train_mask, torch.ones(data.x.shape[0] - data_train_mask.shape[0], dtype=torch.bool, device=data_train_mask.device)), 0)
+    data_val_mask = torch.cat((data_val_mask, torch.zeros(data.x.shape[0] - data_val_mask.shape[0], dtype=torch.bool, device=data_val_mask.device)), 0)
+    data_test_mask = torch.cat((data_test_mask, torch.zeros(data.x.shape[0] - data_test_mask.shape[0], dtype=torch.bool, device=data_test_mask.device)), 0)
+    train_edge_mask = torch.cat((train_edge_mask, torch.ones(data.edge_index.shape[1] - train_edge_mask.shape[0], dtype=torch.bool, device=train_edge_mask.device)), 0)
 
 if args.gdc=='ppr':
     neighbor_dist_list = get_PPR_adj(data.x, data.edge_index[:,train_edge_mask], alpha=0.05, k=128, eps=None)

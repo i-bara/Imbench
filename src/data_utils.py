@@ -23,7 +23,7 @@ def get_dataset(name, path, split_type='public'):
     return dataset
 
 def get_idx_info(label, n_cls, train_mask):
-    index_list = torch.arange(len(label))
+    index_list = torch.arange(len(label), device=label.device)
     idx_info = []
     for i in range(n_cls):
         cls_indices = index_list[((label == i) & train_mask)]
@@ -62,7 +62,7 @@ def make_longtailed_data_remove(edge_index, label, n_data, n_cls, ratio, train_m
     remove_class_num_list = [n_data[i].item()-class_num_list[i] for i in range(n_cls)]
     remove_idx_list = [[] for _ in range(n_cls)]
     cls_idx_list = []
-    index_list = torch.arange(len(train_mask))
+    index_list = torch.arange(len(train_mask), device=label.device)
     original_mask = train_mask.clone()
     for i in range(n_cls):
         cls_idx_list.append(index_list[(label == i) & original_mask])
@@ -87,7 +87,7 @@ def make_longtailed_data_remove(edge_index, label, n_data, n_cls, ratio, train_m
             # Accumulation does not be problem since
             _, remove_idx = torch.topk(degree, (r*remove_class_num_list[i])//n_round[i], largest=False)
             remove_idx = cls_idx_list[i][remove_idx]
-            remove_idx_list[i] = list(remove_idx.numpy())
+            remove_idx_list[i] = list(remove_idx.cpu().numpy())
 
     # Find removed nodes
     node_mask = label.new_ones(label.size(), dtype=torch.bool)
@@ -118,7 +118,10 @@ def get_step_split(imb_ratio, valid_each, labeling_ratio, all_idx, all_label, nc
     h_num = len(head_list)
     t_num = len(tail_list)
 
-    base_train_each = int( len(all_idx) * labeling_ratio / (t_num + h_num * imb_ratio) )
+    if imb_ratio == 0:
+        base_train_each = -1
+    else:
+        base_train_each = int( len(all_idx) * labeling_ratio / (t_num + h_num * imb_ratio) )
 
     idx2train,idx2valid = {},{}
 
@@ -126,14 +129,28 @@ def get_step_split(imb_ratio, valid_each, labeling_ratio, all_idx, all_label, nc
     total_valid_size = 0
 
     for i_h in head_list: 
-        idx2train[i_h] = int(base_train_each * imb_ratio)
+        if base_train_each == -1:
+            train_list = [0 for _ in range(nclass)]
+            for iter0 in all_idx:
+                iter_label = all_label[iter0]
+                train_list[iter_label]+=1
+            idx2train[i_h] = int(train_list[i_h] * labeling_ratio)
+        else:
+            idx2train[i_h] = int(base_train_each * imb_ratio)
         idx2valid[i_h] = int(base_valid_each * 1) 
 
         total_train_size += idx2train[i_h]
         total_valid_size += idx2valid[i_h]
 
     for i_t in tail_list: 
-        idx2train[i_t] = int(base_train_each * 1)
+        if base_train_each == -1:
+            train_list = [0 for _ in range(nclass)]
+            for iter0 in all_idx:
+                iter_label = all_label[iter0]
+                train_list[iter_label]+=1
+            idx2train[i_t] = int(train_list[i_t] * labeling_ratio)
+        else:
+            idx2train[i_t] = int(base_train_each * 1)
         idx2valid[i_t] = int(base_valid_each * 1)
 
         total_train_size += idx2train[i_t]

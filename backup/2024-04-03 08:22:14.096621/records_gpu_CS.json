@@ -1,0 +1,189 @@
+[
+    {
+        "begin_datetime": "2024-04-03 04:09:13.260207",
+        "end_datetime": "2024-04-03 04:24:22.322560",
+        "time_erased": "0:15:09.062353",
+        "method": "vanilla",
+        "dataset": "Coauthor-CS",
+        "seed": 100,
+        "acc": 92.689401674,
+        "bacc": 88.548990857,
+        "f1": 89.808797389
+    },
+    {
+        "begin_datetime": "2024-04-03 04:24:22.371354",
+        "end_datetime": "2024-04-03 04:38:52.104158",
+        "time_erased": "0:14:29.732804",
+        "method": "vanilla",
+        "dataset": "Coauthor-CS",
+        "seed": 200,
+        "acc": 92.641753454,
+        "bacc": 88.123340374,
+        "f1": 89.527374342
+    },
+    {
+        "begin_datetime": "2024-04-03 04:38:52.215870",
+        "end_datetime": "2024-04-03 04:53:21.561921",
+        "time_erased": "0:14:29.346051",
+        "method": "vanilla",
+        "dataset": "Coauthor-CS",
+        "seed": 300,
+        "acc": 92.743856783,
+        "bacc": 88.610599986,
+        "f1": 89.783939485
+    },
+    {
+        "begin_datetime": "2024-04-03 04:53:21.629413",
+        "end_datetime": "2024-04-03 05:07:49.166456",
+        "time_erased": "0:14:27.537043",
+        "method": "vanilla",
+        "dataset": "Coauthor-CS",
+        "seed": 400,
+        "acc": 92.90041522,
+        "bacc": 88.774345114,
+        "f1": 90.092403473
+    },
+    {
+        "begin_datetime": "2024-04-03 05:07:49.230788",
+        "end_datetime": "2024-04-03 05:22:57.722502",
+        "time_erased": "0:15:08.491714",
+        "method": "vanilla",
+        "dataset": "Coauthor-CS",
+        "seed": 500,
+        "acc": 92.737049894,
+        "bacc": 88.483433746,
+        "f1": 89.688582039
+    },
+    {
+        "begin_datetime": "2024-04-03 05:22:57.781584",
+        "end_datetime": "2024-04-03 05:37:12.278545",
+        "time_erased": "0:14:14.496961",
+        "method": "vanilla",
+        "dataset": "Coauthor-CS",
+        "seed": 600,
+        "acc": 92.791505003,
+        "bacc": 88.468680874,
+        "f1": 89.800410322
+    },
+    {
+        "begin_datetime": "2024-04-03 05:37:12.370669",
+        "end_datetime": "2024-04-03 05:51:18.818282",
+        "time_erased": "0:14:06.447613",
+        "method": "vanilla",
+        "dataset": "Coauthor-CS",
+        "seed": 700,
+        "acc": 92.832346334,
+        "bacc": 88.605961138,
+        "f1": 89.906207809
+    },
+    {
+        "begin_datetime": "2024-04-03 05:51:18.902588",
+        "end_datetime": "2024-04-03 06:05:20.276953",
+        "time_erased": "0:14:01.374365",
+        "method": "vanilla",
+        "dataset": "Coauthor-CS",
+        "seed": 800,
+        "acc": 92.873187666,
+        "bacc": 88.866234968,
+        "f1": 90.054596605
+    },
+    {
+        "begin_datetime": "2024-04-03 06:05:20.346147",
+        "end_datetime": "2024-04-03 06:20:29.604905",
+        "time_erased": "0:15:09.258758",
+        "method": "vanilla",
+        "dataset": "Coauthor-CS",
+        "seed": 900,
+        "acc": 92.845960112,
+        "bacc": 88.914343336,
+        "f1": 89.986933591
+    },
+    {
+        "begin_datetime": "2024-04-03 06:20:29.702060",
+        "end_datetime": "2024-04-03 06:34:55.766359",
+        "time_erased": "0:14:26.064299",
+        "method": "vanilla",
+        "dataset": "Coauthor-CS",
+        "seed": 1000,
+        "acc": 92.907222109,
+        "bacc": 88.778070037,
+        "f1": 90.022534555
+    },
+    {
+        "begin_datetime": "2024-04-03 06:36:05.019806",
+        "end_datetime": "2024-04-03 06:50:36.492697",
+        "time_erased": "0:14:31.472891",
+        "method": "ens",
+        "dataset": "Coauthor-CS",
+        "seed": 100,
+        "acc": 92.28098836,
+        "bacc": 90.448108481,
+        "f1": 89.31621893
+    },
+    {
+        "begin_datetime": "2024-04-03 06:50:36.573691",
+        "end_datetime": "2024-04-03 07:05:23.420693",
+        "time_erased": "0:14:46.847002",
+        "method": "ens",
+        "dataset": "Coauthor-CS",
+        "seed": 200,
+        "acc": 92.049554149,
+        "bacc": 90.326468367,
+        "f1": 83.36660045
+    },
+    {
+        "begin_datetime": "2024-04-03 07:05:23.553383",
+        "end_datetime": "2024-04-03 07:20:53.677599",
+        "time_erased": "0:15:30.124216",
+        "method": "ens",
+        "dataset": "Coauthor-CS",
+        "seed": 300,
+        "acc": 91.70920972,
+        "bacc": 90.16676056,
+        "f1": 83.071300097
+    },
+    {
+        "begin_datetime": "2024-04-03 07:20:53.837473",
+        "end_datetime": "2024-04-03 07:35:12.050150",
+        "time_erased": "0:14:18.212677",
+        "method": "ens",
+        "dataset": "Coauthor-CS",
+        "seed": 400,
+        "acc": 91.906609489,
+        "bacc": 90.314316449,
+        "f1": 83.067739292
+    },
+    {
+        "begin_datetime": "2024-04-03 07:35:12.163332",
+        "end_datetime": "2024-04-03 07:50:00.438983",
+        "time_erased": "0:14:48.275651",
+        "method": "ens",
+        "dataset": "Coauthor-CS",
+        "seed": 500,
+        "acc": 92.260567695,
+        "bacc": 90.547917407,
+        "f1": 89.536915617
+    },
+    {
+        "begin_datetime": "2024-04-03 07:50:00.502121",
+        "end_datetime": "2024-04-03 08:04:38.978911",
+        "time_erased": "0:14:38.476790",
+        "method": "ens",
+        "dataset": "Coauthor-CS",
+        "seed": 600,
+        "acc": 92.349057246,
+        "bacc": 90.642681258,
+        "f1": 89.54364477
+    },
+    {
+        "begin_datetime": "2024-04-03 08:04:39.096038",
+        "end_datetime": "2024-04-03 08:19:49.800550",
+        "time_erased": "0:15:10.704512",
+        "method": "ens",
+        "dataset": "Coauthor-CS",
+        "seed": 700,
+        "acc": 92.172078143,
+        "bacc": 90.495875142,
+        "f1": 83.254135545
+    }
+]

@@ -1,0 +1,5 @@
+{
+    "methods": ["vanilla"],
+    "datasets": ["PubMed_100"],
+    "seeds": [100]
+}

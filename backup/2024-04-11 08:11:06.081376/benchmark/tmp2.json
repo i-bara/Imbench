@@ -1,0 +1,5 @@
+{
+    "methods": ["vanilla"],
+    "datasets": ["CiteSeer_100"],
+    "seeds": [100]
+}

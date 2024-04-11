@@ -74,19 +74,21 @@ def get_dataset_offset(dataset):
         raise NotImplementedError()
     
 records_file_list = [
-    ('2', True),
-    ('3', True),
-    ('4', True),
-    ('', False)
+    ('Photo', True),
+    ('Computers', True),
+    ('CS', True),
+    ('smote', True),
+    ('smote2', True),
+    ('ccp', False)
 ]
 
 records = []
 
 for records_file_item in records_file_list:
     if records_file_item[1]:
-        records_file = 'records_gpu' + records_file_item[0] + '.json'
+        records_file = 'records/records_gpu_' + records_file_item[0] + '.json'
     else:
-        records_file = 'records' + records_file_item[0] + '.json'
+        records_file = 'records/records_' + records_file_item[0] + '.json'
     if os.path.exists(records_file):
         with open(records_file) as f:
             records_this = json.load(f)

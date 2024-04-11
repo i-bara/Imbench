@@ -1,0 +1,5 @@
+{
+    "methods": ["vanilla", "smote", "ens", "sha"],
+    "datasets": ["Amazon-Photo"],
+    "seeds": []
+}

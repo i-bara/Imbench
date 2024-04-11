@@ -310,7 +310,7 @@ def src_smote(data, portion=1.0, im_class_num=3):
                    sparse_sizes=(data.x.shape[0], data.x.shape[0]))
     # adj = to_scipy_sparse_matrix(data.edge_index)  Doesn't work because of scipy instead of tensor
 
-    idx_train = torch.tensor(range(data.train_mask.shape[0]))[data.train_mask]
+    idx_train = torch.tensor(range(data.train_mask.shape[0]), device=data.train_mask.device)[data.train_mask]
 
     # print(data.train_mask.shape)
     # print(data.train_mask[range(data.train_mask.shape[0])].shape)
@@ -444,8 +444,8 @@ def src_smote(data, portion=1.0, im_class_num=3):
     # print(idx_train.shape)
     # data.train_mask[idx_train] = torch.tensor([True for _ in range(idx_train.shape[0])])
     
-    data.train_mask = torch.cat((data.train_mask, torch.tensor([True for _ in range(data.x.shape[0] - data.train_mask.shape[0])])), 0)
-    data.val_mask = torch.cat((data.val_mask, torch.tensor([False for _ in range(data.x.shape[0] - data.val_mask.shape[0])])), 0)
-    data.test_mask = torch.cat((data.test_mask, torch.tensor([False for _ in range(data.x.shape[0] - data.test_mask.shape[0])])), 0)
+    data.train_mask = torch.cat((data.train_mask, torch.tensor([True for _ in range(data.x.shape[0] - data.train_mask.shape[0])], device=data.train_mask.device)), 0)
+    data.val_mask = torch.cat((data.val_mask, torch.tensor([False for _ in range(data.x.shape[0] - data.val_mask.shape[0])], device=data.val_mask.device)), 0)
+    data.test_mask = torch.cat((data.test_mask, torch.tensor([False for _ in range(data.x.shape[0] - data.test_mask.shape[0])], device=data.test_mask.device)), 0)
 
     return data

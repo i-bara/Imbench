@@ -1,0 +1,222 @@
+[
+    {
+        "begin_datetime": "2024-04-01 22:26:27.446587",
+        "end_datetime": "2024-04-01 22:28:07.725327",
+        "time_erased": "0:01:40.278740",
+        "method": "vanilla",
+        "dataset": "Amazon-Photo",
+        "seed": 300,
+        "acc": 40.425531915,
+        "bacc": 46.847902113,
+        "f1": 30.094031831
+    },
+    {
+        "begin_datetime": "2024-04-01 22:28:07.791684",
+        "end_datetime": "2024-04-01 22:29:48.219069",
+        "time_erased": "0:01:40.427385",
+        "method": "vanilla",
+        "dataset": "Amazon-Photo",
+        "seed": 400,
+        "acc": 40.518038853,
+        "bacc": 46.9071814,
+        "f1": 31.416359116
+    },
+    {
+        "begin_datetime": "2024-04-01 22:29:48.348110",
+        "end_datetime": "2024-04-01 22:31:28.855704",
+        "time_erased": "0:01:40.507594",
+        "method": "vanilla",
+        "dataset": "Amazon-Photo",
+        "seed": 500,
+        "acc": 40.471785384,
+        "bacc": 46.934776176,
+        "f1": 29.462848023
+    },
+    {
+        "begin_datetime": "2024-04-01 22:31:28.920802",
+        "end_datetime": "2024-04-01 22:33:08.979984",
+        "time_erased": "0:01:40.059182",
+        "method": "vanilla",
+        "dataset": "Amazon-Photo",
+        "seed": 600,
+        "acc": 39.793401172,
+        "bacc": 46.585583469,
+        "f1": 30.748434844
+    },
+    {
+        "begin_datetime": "2024-04-01 22:33:09.058418",
+        "end_datetime": "2024-04-01 22:34:49.488742",
+        "time_erased": "0:01:40.430324",
+        "method": "vanilla",
+        "dataset": "Amazon-Photo",
+        "seed": 700,
+        "acc": 40.148011101,
+        "bacc": 46.678428615,
+        "f1": 30.246380755
+    },
+    {
+        "begin_datetime": "2024-04-01 22:34:49.548652",
+        "end_datetime": "2024-04-01 22:36:29.857268",
+        "time_erased": "0:01:40.308616",
+        "method": "vanilla",
+        "dataset": "Amazon-Photo",
+        "seed": 800,
+        "acc": 40.178846747,
+        "bacc": 46.749673855,
+        "f1": 30.152354003
+    },
+    {
+        "begin_datetime": "2024-04-01 22:36:29.923949",
+        "end_datetime": "2024-04-01 22:38:10.161974",
+        "time_erased": "0:01:40.238025",
+        "method": "vanilla",
+        "dataset": "Amazon-Photo",
+        "seed": 900,
+        "acc": 40.533456676,
+        "bacc": 46.915565035,
+        "f1": 31.217615803
+    },
+    {
+        "begin_datetime": "2024-04-01 22:38:10.294331",
+        "end_datetime": "2024-04-01 22:39:51.025312",
+        "time_erased": "0:01:40.730981",
+        "method": "vanilla",
+        "dataset": "Amazon-Photo",
+        "seed": 1000,
+        "acc": 40.19426457,
+        "bacc": 46.740102538,
+        "f1": 30.946894585
+    },
+    {
+        "begin_datetime": "2024-04-02 08:49:25.576549",
+        "end_datetime": "2024-04-02 08:51:46.336236",
+        "time_erased": "0:02:20.759687",
+        "method": "vanilla",
+        "dataset": "Amazon-Photo",
+        "seed": 100,
+        "acc": 39.993832871,
+        "bacc": 46.649070233,
+        "f1": 29.758727752
+    },
+    {
+        "begin_datetime": "2024-04-02 08:51:46.407318",
+        "end_datetime": "2024-04-02 08:53:26.841789",
+        "time_erased": "0:01:40.434471",
+        "method": "vanilla",
+        "dataset": "Amazon-Photo",
+        "seed": 200,
+        "acc": 40.101757632,
+        "bacc": 46.716733155,
+        "f1": 29.881155476
+    },
+    {
+        "begin_datetime": "2024-04-02 17:52:09.062773",
+        "end_datetime": "2024-04-02 17:54:01.327983",
+        "time_erased": "0:01:52.265210",
+        "method": "ens",
+        "dataset": "Amazon-Photo",
+        "seed": 100,
+        "acc": 84.551341351,
+        "bacc": 86.917790637,
+        "f1": 81.801737926
+    },
+    {
+        "begin_datetime": "2024-04-02 17:54:01.410709",
+        "end_datetime": "2024-04-02 17:55:51.668487",
+        "time_erased": "0:01:50.257778",
+        "method": "ens",
+        "dataset": "Amazon-Photo",
+        "seed": 200,
+        "acc": 84.505087882,
+        "bacc": 86.865050925,
+        "f1": 82.286524272
+    },
+    {
+        "begin_datetime": "2024-04-02 17:55:51.757081",
+        "end_datetime": "2024-04-02 17:57:41.790751",
+        "time_erased": "0:01:50.033670",
+        "method": "ens",
+        "dataset": "Amazon-Photo",
+        "seed": 300,
+        "acc": 84.705519581,
+        "bacc": 87.825590529,
+        "f1": 82.693792523
+    },
+    {
+        "begin_datetime": "2024-04-02 17:57:41.884120",
+        "end_datetime": "2024-04-02 17:59:32.264590",
+        "time_erased": "0:01:50.380470",
+        "method": "ens",
+        "dataset": "Amazon-Photo",
+        "seed": 400,
+        "acc": 85.260561209,
+        "bacc": 86.738190788,
+        "f1": 82.560699125
+    },
+    {
+        "begin_datetime": "2024-04-02 17:59:32.329557",
+        "end_datetime": "2024-04-02 18:01:22.671884",
+        "time_erased": "0:01:50.342327",
+        "method": "ens",
+        "dataset": "Amazon-Photo",
+        "seed": 500,
+        "acc": 83.117483811,
+        "bacc": 86.844767461,
+        "f1": 81.18525259
+    },
+    {
+        "begin_datetime": "2024-04-02 18:01:22.800757",
+        "end_datetime": "2024-04-02 18:03:12.951923",
+        "time_erased": "0:01:50.151166",
+        "method": "ens",
+        "dataset": "Amazon-Photo",
+        "seed": 600,
+        "acc": 84.582176997,
+        "bacc": 86.54623225,
+        "f1": 82.36560582
+    },
+    {
+        "begin_datetime": "2024-04-02 18:03:13.060142",
+        "end_datetime": "2024-04-02 18:05:03.346311",
+        "time_erased": "0:01:50.286169",
+        "method": "ens",
+        "dataset": "Amazon-Photo",
+        "seed": 700,
+        "acc": 84.736355227,
+        "bacc": 87.78029088,
+        "f1": 82.333926248
+    },
+    {
+        "begin_datetime": "2024-04-02 18:05:03.412311",
+        "end_datetime": "2024-04-02 18:06:53.678288",
+        "time_erased": "0:01:50.265977",
+        "method": "ens",
+        "dataset": "Amazon-Photo",
+        "seed": 800,
+        "acc": 84.720937404,
+        "bacc": 88.491363365,
+        "f1": 82.643459497
+    },
+    {
+        "begin_datetime": "2024-04-02 18:06:53.750957",
+        "end_datetime": "2024-04-02 18:08:43.978500",
+        "time_erased": "0:01:50.227543",
+        "method": "ens",
+        "dataset": "Amazon-Photo",
+        "seed": 900,
+        "acc": 84.412580944,
+        "bacc": 86.720710268,
+        "f1": 82.1788019
+    },
+    {
+        "begin_datetime": "2024-04-02 18:08:44.069773",
+        "end_datetime": "2024-04-02 18:10:34.567789",
+        "time_erased": "0:01:50.498016",
+        "method": "ens",
+        "dataset": "Amazon-Photo",
+        "seed": 1000,
+        "acc": 84.659266112,
+        "bacc": 86.913679456,
+        "f1": 82.369314151
+    }
+]

@@ -1,4 +1,5 @@
 import os
+import sys
 import re
 import json
 import datetime
@@ -9,9 +10,12 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    # Method
+    
+    parser.add_argument('name')
     parser.add_argument('--gpu', action='store_true',
                         help='use gpu')
+    parser.add_argument('--debug', action='store_true',
+                        help='only for debugging, do not save as records')
     args = parser.parse_args()
 
     return args
@@ -19,69 +23,13 @@ def parse_args():
 
 args = parse_args()
 
-method_list = ['vanilla', 'drgcn', 'smote', 'imgagn', 'ens', 'tam', 'lte4g', 'sann', 'sha', 'renode', 'pastel', 'hyperimba']
-score_list = ['acc', 'bacc', 'macrof1']
-dataset_list = ['Cora_100', 'Cora_20', 'CiteSeer_100', 'CiteSeer_20', 'PubMed_100', 'PubMed_20', 'Amazon-Photo', 'Amazon-Computers', 'Coauthor-CS']
-seed_list = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
-
-def get_method_offset(method):
-    if method == 'vanilla':
-        return 0
-    elif method == 'drgcn':
-        return 1
-    elif method == 'smote':
-        return 2
-    elif method == 'imgagn':
-        return 3
-    elif method == 'ens':
-        return 4
-    elif method == 'tam':
-        return 5
-    elif method == 'lte4g':
-        return 6
-    elif method == 'sann':
-        return 7
-    elif method == 'sha':
-        return 8
-    elif method == 'renode':
-        return 10
-    elif method == 'pastel':
-        return 11
-    elif method == 'hyperimba':
-        return 12
-    else:
-        raise NotImplementedError()
+all_config = dict()
+all_config['methods'] = ['vanilla', 'drgcn', 'smote', 'imgagn', 'ens', 'tam', 'lte4g', 'sann', 'sha', 'renode', 'pastel', 'hyperimba']
+all_config['datasets'] = ['Cora_100', 'Cora_20', 'CiteSeer_100', 'CiteSeer_20', 'PubMed_100', 'PubMed_20', 'Amazon-Photo', 'Amazon-Computers', 'Coauthor-CS']
+all_config['seeds'] = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
 
 
-def get_score_offset(score):
-    if score == 'acc':
-        return 0
-    elif score == 'bacc':
-        return 1
-    elif score == 'macrof1':
-        return 2
-    else:
-        raise NotImplementedError()
-
-
-def get_dataset_offset(dataset):
-    if dataset == 'Cora_100':
-        return (4, 2)
-    elif dataset == 'Cora_20':
-        return (4, 5)
-    elif dataset == 'CiteSeer_100':
-        return (4, 9)
-    elif dataset == 'CiteSeer_20':
-        return (4, 11)
-    elif dataset == 'PubMed_100':
-        return (4, 14)
-    elif dataset == 'PubMed_20':
-        return (4, 17)
-    else:
-        raise NotImplementedError()
-
-
-def config(method, dataset, seed):
+def config_args(method, dataset, seed):
     method_config = '--method ' + method
     if dataset == 'Cora_100':
         dataset_config = '--dataset Cora --imb_ratio 100'
@@ -95,29 +43,32 @@ def config(method, dataset, seed):
         dataset_config = '--dataset PubMed --imb_ratio 100'
     elif dataset == 'PubMed_20':
         dataset_config = '--dataset PubMed --imb_ratio 20'
+    elif dataset in ['Amazon-Photo', 'Amazon-Computers', 'Coauthor-CS']:
+        dataset_config = '--dataset ' + dataset + ' --imb_ratio 0'  # Do not adjust the imbalance
     else:
         raise NotImplementedError()
     return method_config + ' ' + dataset_config + ' --seed ' + seed.__str__()
 
 
-# os.system("ping baidu.com > ping.txt")
-
-
-def experiment(method, dataset, seed):
+def experiment(method, dataset, seed, records, records_file, cache_file):
     done = False
     for record in records:
         if record['method'] == method and record['dataset'] == dataset and record['seed'] == seed:
             done = True
 
     if not done:
-        begin_datetime = datetime.datetime.now()
         if args.gpu:
-            os.system("python main.py " + config(method=method, dataset=dataset, seed=seed) + " > cache.txt")
+            command = "python src/main.py " + config_args(method=method, dataset=dataset, seed=seed) + " > " + cache_file
         else:
-            os.system("python main.py " + config(method=method, dataset=dataset, seed=seed) + " --device cpu > cache.txt")
+            command = "python src/main.py " + config_args(method=method, dataset=dataset, seed=seed) + " --device cpu > " + cache_file
+        print('\n')
+        print(command)
+
+        begin_datetime = datetime.datetime.now()
+        os.system(command)
         end_datetime = datetime.datetime.now()
 
-        with open("cache.txt") as f:
+        with open(cache_file) as f:
             info = f.readline()
             match = re.match('acc: ([\\d\\.]*), bacc: ([\\d\\.]*), f1: ([\\d\\.]*)', info)
             if match is not None:
@@ -135,59 +86,62 @@ def experiment(method, dataset, seed):
                 print(record)
                 records.append(record)
 
-        os.system("rm cache.txt")
+        if not args.debug:
+            os.system("rm " + cache_file)
     
-    with open(records_file, 'w+') as f:
-        json.dump(records, f, indent=4)
+    if not args.debug:
+        with open(records_file, 'w+') as f:
+            json.dump(records, f, indent=4)
 
 
-# Begin
+def benchmark(name, methods, datasets, seeds):
+    suffix = '_'
 
-if args.gpu:
-    records_file = 'records_gpu.json'
-else:
-    records_file = 'records.json'
+    if args.gpu:
+        suffix += 'gpu_'
 
-if os.path.exists(records_file):
-    with open(records_file) as f:
-        records = json.load(f)
-else:
-    records = []
+    if args.debug:
+        suffix += 'debug_'
+    
+    if not os.path.isdir('log'):
+        os.system('mkdir log')
+    if not os.path.isdir('records'):
+        os.system('mkdir records')
+    if not os.path.isdir('cache'):
+        os.system('mkdir cache')
+    records_file = 'records/records' + suffix + name + '.json'
+    cache_file = 'cache/cache' + suffix + name + '.txt'
 
-methods = ['vanilla', 'smote', 'ens', 'sha']
-# methods = ['vanilla', 'ens', 'sha']
-datasets = ['Cora_100', 'Cora_20', 'CiteSeer_100', 'CiteSeer_20', 'PubMed_100', 'PubMed_20']
-seeds = seed_list
+    if os.path.exists(records_file):
+        with open(records_file) as f:
+            records = json.load(f)
+    else:
+        records = []
 
-print(f'''
-methods = {methods}
-datasets = {datasets}
-seeds = {seeds}
-''')
+    print(f'''
+    benchmark_{name}
 
-# methods = ['vanilla', 'ens', 'sha']
-# datasets = ['Cora_100']
-# seeds = [100, 200]
+    methods = {methods}
+    datasets = {datasets}
+    seeds = {seeds}
+    ''')
 
-for method in methods:
-    for dataset in datasets:
-        for seed in seeds:
-            experiment(method=method, dataset=dataset, seed=seed)
+    for method in methods:
+        for dataset in datasets:
+            for seed in seeds:
+                experiment(method=method, dataset=dataset, seed=seed, 
+                           records=records, records_file=records_file, cache_file=cache_file)
 
-exit()
 
-filename = 'Imbalance Benchmark.xlsx'
-
-#load excel file
-workbook = load_workbook(filename=filename)
-
-#Pick the sheet "new_sheet"
-ws4 = workbook["Sheet1"]
-
-#modify the desired cell
-ws4.cell(row = 1, column = 3).value = 'Old Price'
-
-print(ws4.cell(row = 1, column = 4).value)
-
-#save the file
-workbook.save(filename=filename)
+if __name__ == '__main__':
+    name = sys.argv[1]
+    config_file = 'benchmark/' + name + '.json'
+    if os.path.exists(config_file):
+        with open(config_file) as f:
+            config = json.load(f)
+            for config_option in ['methods', 'datasets', 'seeds']:
+                if len(config[config_option]) == 0:
+                    config[config_option] = all_config[config_option]
+            benchmark(name=name, methods=config['methods'], datasets=config['datasets'], seeds=config['seeds'])
+    else:
+        raise FileNotFoundError

@@ -1,0 +1,5 @@
+{
+    "methods": ["smote"],
+    "datasets": ["Cora_100", "Cora_20", "CiteSeer_100", "CiteSeer_20", "PubMed_100", "PubMed_20"],
+    "seeds": []
+}

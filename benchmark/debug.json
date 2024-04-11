@@ -1,0 +1,5 @@
+{
+    "methods": ["smote"],
+    "datasets": ["Amazon-Photo"],
+    "seeds": [666]
+}
