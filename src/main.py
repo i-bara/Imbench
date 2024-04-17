@@ -248,18 +248,18 @@ elif args.gdc=='none':
     neighbor_dist_list = get_ins_neighbor_dist(data.y.size(0), data.edge_index[:,train_edge_mask], data_train_mask, device)
 
 if args.net == 'GCN':
-    model = create_gcn(nfeat=dataset.num_features, nhid=args.feat_dim, nclass=n_cls, dropout=0.5, nlayer=args.n_layer)
+    model = create_gcn(nfeat=dataset.num_features, nhid=args.feat_dim, nclass=n_cls, dropout=args.dropout, nlayer=args.n_layer)
 elif args.net == 'GAT':
-    model = create_gat(nfeat=dataset.num_features, nhid=args.feat_dim, nclass=n_cls, dropout=0.5, nlayer=args.n_layer)
+    model = create_gat(nfeat=dataset.num_features, nhid=args.feat_dim, nclass=n_cls, dropout=args.dropout, nlayer=args.n_layer)
 elif args.net == "SAGE":
-    model = create_sage(nfeat=dataset.num_features, nhid=args.feat_dim, nclass=n_cls, dropout=0.5, nlayer=args.n_layer)
+    model = create_sage(nfeat=dataset.num_features, nhid=args.feat_dim, nclass=n_cls, dropout=args.dropout, nlayer=args.n_layer)
 else:
     raise NotImplementedError("Not Implemented Architecture!")
 
 model = model.to(device)
 criterion = CrossEntropy().to(device)
 
-optimizer = torch.optim.Adam([dict(params=model.reg_params, weight_decay=5e-4), dict(params=model.non_reg_params, weight_decay=0),], lr=args.lr)
+optimizer = torch.optim.Adam([dict(params=model.reg_params, weight_decay=args.weight_decay), dict(params=model.non_reg_params, weight_decay=0),], lr=args.lr)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=100, verbose=False)
 
 best_val_acc_f1 = 0

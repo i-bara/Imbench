@@ -1,0 +1,22 @@
+{
+    "n_layer": {
+        "choices": [1, 2, 3],
+        "initial": 2
+    }, 
+    "feat_dim": {
+        "choices": [64, 128, 256],
+        "initial": 64
+    },
+    "dropout": {
+        "choices": [0, 0.2, 0.5],
+        "initial": 0.5
+    },
+    "lr": {
+        "choices": [1e-1, 1e-2, 1e-3],
+        "initial": 1e-2
+    },
+    "weight_decay": {
+        "choices": [5e-4, 5e-7, 0],
+        "initial": 5e-4
+    }
+}

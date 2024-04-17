@@ -1,0 +1,11 @@
+{
+    "base": "vanilla", 
+    "keep_prob": {
+        "choices": [0.01],
+        "initial": 0.01
+    },
+    "tau": {
+        "choices": [1, 2],
+        "initial": 2
+    }
+}

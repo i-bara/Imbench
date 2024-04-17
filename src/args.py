@@ -25,8 +25,10 @@ def parse_args():
     parser.add_argument('--n_head', type=int, default=8, help='the number of heads in GAT')
 
     # Hyperparameter
+    parser.add_argument('--dropout', type=float, default=0.5, help='dropout')
+    parser.add_argument('--weight_decay', type=float, default=5e-4, help='weight_decay')
     parser.add_argument('--warmup', type=int, default=5, help='warmup epoch')
-    parser.add_argument('--epoch', type=int, default=900, help='epoch')
+    parser.add_argument('--epoch', type=int, default=500, help='epoch')
     parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
     parser.add_argument('--keep_prob', type=float, default=0.01, help='keeping probability') # used in ens
     parser.add_argument('--tau', type=int, default=2, help='temperature in the softmax function when calculating confidence-based node hardness') # used in sha, and ens as pred_tau

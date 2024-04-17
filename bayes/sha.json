@@ -1,0 +1,7 @@
+{
+    "base": "vanilla", 
+    "tau": {
+        "choices": [1, 2],
+        "initial": 2
+    }
+}

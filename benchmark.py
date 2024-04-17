@@ -50,7 +50,7 @@ def config_args(method, dataset, seed):
     return method_config + ' ' + dataset_config + ' --seed ' + seed.__str__()
 
 
-def experiment(method, dataset, seed, records, records_file, cache_file):
+def experiment(method, dataset, seed, options, records, records_file, cache_file):
     done = False
     for record in records:
         if record['method'] == method and record['dataset'] == dataset and record['seed'] == seed:
@@ -58,9 +58,9 @@ def experiment(method, dataset, seed, records, records_file, cache_file):
 
     if not done:
         if args.gpu:
-            command = "python src/main.py " + config_args(method=method, dataset=dataset, seed=seed) + " > " + cache_file
+            command = "python src/main.py " + config_args(method=method, dataset=dataset, seed=seed) + " " + options + " > " + cache_file
         else:
-            command = "python src/main.py " + config_args(method=method, dataset=dataset, seed=seed) + " --device cpu > " + cache_file
+            command = "python src/main.py " + config_args(method=method, dataset=dataset, seed=seed) + " " + options + " --device cpu > " + cache_file
         print('\n')
         print(command)
 
@@ -95,13 +95,13 @@ def experiment(method, dataset, seed, records, records_file, cache_file):
 
 
 def benchmark(name, methods, datasets, seeds):
-    suffix = '_'
+    suffix = ''
 
     if args.gpu:
-        suffix += 'gpu_'
+        suffix += '_gpu'
 
     if args.debug:
-        suffix += 'debug_'
+        suffix += '_debug'
     
     if not os.path.isdir('log'):
         os.system('mkdir log')
@@ -109,8 +109,8 @@ def benchmark(name, methods, datasets, seeds):
         os.system('mkdir records')
     if not os.path.isdir('cache'):
         os.system('mkdir cache')
-    records_file = 'records/records' + suffix + name + '.json'
-    cache_file = 'cache/cache' + suffix + name + '.txt'
+    records_file = 'records/' + name + suffix + '.json'
+    cache_file = 'cache/' + name + suffix + '.txt'
 
     if os.path.exists(records_file):
         with open(records_file) as f:
@@ -129,14 +129,60 @@ def benchmark(name, methods, datasets, seeds):
     for method in methods:
         for dataset in datasets:
             for seed in seeds:
-                experiment(method=method, dataset=dataset, seed=seed, 
+                experiment(method=method, dataset=dataset, seed=seed, options='', 
                            records=records, records_file=records_file, cache_file=cache_file)
 
 
+def bayes(name, methods, datasets, seeds, options, iters):
+    suffix = ''
+
+    if args.gpu:
+        suffix += '_gpu'
+
+    if args.debug:
+        suffix += '_debug'
+    
+    if not os.path.isdir('log'):
+        os.system('mkdir log')
+    if not os.path.isdir('records'):
+        os.system('mkdir records')
+    if not os.path.isdir('cache'):
+        os.system('mkdir cache')
+    cache_file = 'cache/' + name + suffix + '.txt'
+
+    print(f'''
+    benchmark_{name}
+
+    methods = {methods}
+    datasets = {datasets}
+    seeds = {seeds}
+    ''')
+
+    for method in methods:
+        for dataset in datasets:
+            bayes_iter = 0
+            while os.path.isfile(f'records/bayes_{name}{suffix}/{method}/{dataset}/{bayes_file + 1}_bayes.json'):
+                bayes_iter += 1
+            while bayes_iter < iters:
+                bayes_file = f'records/bayes_{name}{suffix}/{method}/{dataset}/{bayes_file}_bayes.json'
+                # TODO: Get options from file
+                records_file = f'records/bayes_{name}{suffix}/{method}/{dataset}/{bayes_file}.json'
+
+                if os.path.exists(records_file):
+                    with open(records_file) as f:
+                        records = json.load(f)
+                else:
+                    records = []
+                for seed in seeds:
+                    experiment(method=method, dataset=dataset, seed=seed, options=options, 
+                            records=records, records_file=records_file, cache_file=cache_file)
+                # TODO: Update options and state to file
+
+
 if __name__ == '__main__':
-    name = sys.argv[1]
+    name = args.name
     config_file = 'benchmark/' + name + '.json'
-    if os.path.exists(config_file):
+    if os.path.isfile(config_file):
         with open(config_file) as f:
             config = json.load(f)
             for config_option in ['methods', 'datasets', 'seeds']:
