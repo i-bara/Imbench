@@ -1,0 +1,5 @@
+{
+    "methods": ["vanilla"],
+    "datasets": ["ogbn-arxiv"],
+    "seeds": [100]
+}

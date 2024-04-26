@@ -1,0 +1,5 @@
+{
+    "methods": ["sha"],
+    "datasets": ["Wisconsin_100"],
+    "seeds": [100]
+}

@@ -242,18 +242,21 @@ def sampling_node_source(class_num_list, prev_out_local, idx_info_local, train_i
     sampling_list = max_num * torch.ones(n_cls) - torch.tensor(class_num_list)
 
     prev_out_local = F.softmax(prev_out_local/tau, dim=1)
-    prev_out_local = prev_out_local.cpu() 
+    prev_out_local = prev_out_local.cpu()  # Output (cross entropy) of train (with shape [N, C])
 
     src_idx_all = []
     dst_idx_all = []
-    for cls_idx, num in enumerate(sampling_list):
+    for cls_idx, num in enumerate(sampling_list):  # For each of classes with train_num < mean(train_num)
         num = int(num.item())
         if num <= 0: 
             continue
 
         # first sampling
-        prob = 1 - prev_out_local[idx_info_local[cls_idx]][:,cls_idx].squeeze() 
-        src_idx_local = torch.multinomial(prob + 1e-12, num, replacement=True) 
+        prob = 1 - prev_out_local[idx_info_local[cls_idx]][:,cls_idx].squeeze()  # Prediction of train (with shape [N_c])
+        if prob.dim() == 0:  # 4.19: Fixed only one train sample in a class
+            src_idx_local = torch.zeros(num, dtype=torch.int64)
+        else:
+            src_idx_local = torch.multinomial(prob + 1e-12, num, replacement=True) 
         src_idx = train_idx[idx_info_local[cls_idx][src_idx_local]] 
 
         # second sampling
@@ -448,4 +451,12 @@ def src_smote(data, portion=1.0, im_class_num=3):
     data.val_mask = torch.cat((data.val_mask, torch.tensor([False for _ in range(data.x.shape[0] - data.val_mask.shape[0])], device=data.val_mask.device)), 0)
     data.test_mask = torch.cat((data.test_mask, torch.tensor([False for _ in range(data.x.shape[0] - data.test_mask.shape[0])], device=data.test_mask.device)), 0)
 
+    return data
+
+
+def src_imgagn(data, x_gen, y_gen, edge_index_gen):
+    data_new = data.clone().attach()
+    data_new.x = torch.cat((data.x, x_gen.detach()), 0)
+    data_new.y = torch.cat((data.y, y_gen.detach()), 0)
+    data_new.edge_index = torch.cat((data.edge_index, edge_index_gen.detach()), 0)
     return data

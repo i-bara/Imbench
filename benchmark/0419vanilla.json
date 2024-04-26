@@ -1,0 +1,5 @@
+{
+    "methods": ["vanilla"],
+    "datasets": ["Cora_100", "Cora_20", "CiteSeer_100", "CiteSeer_20", "PubMed_100", "PubMed_20", "chameleon_100", "chameleon_20", "squirrel_100", "squirrel_20", "Actor_100", "Actor_20"],
+    "seeds": []
+}

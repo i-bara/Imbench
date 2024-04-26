@@ -8,7 +8,7 @@ import statistics
 
 method_list = ['vanilla', 'drgcn', 'smote', 'imgagn', 'ens', 'tam', 'lte4g', 'sann', 'sha', 'renode', 'pastel', 'hyperimba']
 score_list = ['acc', 'bacc', 'f1']
-dataset_list = ['Cora_100', 'Cora_20', 'CiteSeer_100', 'CiteSeer_20', 'PubMed_100', 'PubMed_20', 'Amazon-Photo', 'Amazon-Computers', 'Coauthor-CS']
+dataset_list = ['Cora_100', 'Cora_20', 'CiteSeer_100', 'CiteSeer_20', 'PubMed_100', 'PubMed_20', 'chameleon_100', 'chameleon_20', 'squirrel_100', 'squirrel_20', 'Actor_100', 'Actor_20', 'Wisconsin_100', 'Wisconsin_20', 'Amazon-Photo', 'Amazon-Computers', 'Coauthor-CS']
 seed_list = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
 
 def get_method_offset(method):
@@ -29,13 +29,13 @@ def get_method_offset(method):
     elif method == 'sann':
         return 7
     elif method == 'sha':
-        return 8
+        return 9
     elif method == 'renode':
-        return 10
-    elif method == 'pastel':
         return 11
-    elif method == 'hyperimba':
+    elif method == 'pastel':
         return 12
+    elif method == 'hyperimba':
+        return 13
     else:
         raise NotImplementedError()
 
@@ -64,31 +64,55 @@ def get_dataset_offset(dataset):
         return (4, 14)
     elif dataset == 'PubMed_20':
         return (4, 17)
+    elif dataset == 'chameleon_100':
+        return (4, 20)
+    elif dataset == 'chameleon_20':
+        return (4, 23)
+    elif dataset == 'squirrel_100':
+        return (4, 26)
+    elif dataset == 'squirrel_20':
+        return (4, 29)
+    elif dataset == 'Actor_100':
+        return (4, 32)
+    elif dataset == 'Actor_20':
+        return (4, 35)
+    elif dataset == 'Wisconsin_100':
+        return (4, 38)
+    elif dataset == 'Wisconsin_20':
+        return (4, 41)
     elif dataset == 'Amazon-Photo':
-        return (21, 2)
+        return (22, 2)
     elif dataset == 'Amazon-Computers':
-        return (21, 8)
+        return (22, 8)
     elif dataset == 'Coauthor-CS':
-        return (21, 14)
+        return (22, 14)
+    elif dataset == 'ogbn-arxiv':
+        return (22, 20)
     else:
         raise NotImplementedError()
     
 records_file_list = [
-    ('Photo', True),
-    ('Computers', True),
-    ('CS', True),
-    ('smote', True),
-    ('smote2', True),
-    ('ccp', False)
+    # ('Photo', True),
+    # ('Computers', True),
+    # ('CS', True),
+    ('0419vanilla', True),
+    ('0419smote', True),
+    ('0419ens', True),
+    ('0419sha', True),
+    # ('smote', True),
+    # ('smote2', True),
+    # ('ccp', False),
 ]
 
 records = []
 
 for records_file_item in records_file_list:
     if records_file_item[1]:
-        records_file = 'records/records_gpu_' + records_file_item[0] + '.json'
+        records_file = 'records/' + records_file_item[0] + '_gpu.json'
+        # records_file = 'records/records_gpu_' + records_file_item[0] + '.json'
     else:
-        records_file = 'records/records_' + records_file_item[0] + '.json'
+        records_file = 'records/' + records_file_item[0] + '.json'
+        # records_file = 'records/records_' + records_file_item[0] + '.json'
     if os.path.exists(records_file):
         with open(records_file) as f:
             records_this = json.load(f)

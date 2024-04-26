@@ -3,8 +3,6 @@ import sys
 import re
 import json
 import datetime
-import pandas as pd
-from openpyxl import load_workbook
 import argparse
 
 
@@ -25,7 +23,7 @@ args = parse_args()
 
 all_config = dict()
 all_config['methods'] = ['vanilla', 'drgcn', 'smote', 'imgagn', 'ens', 'tam', 'lte4g', 'sann', 'sha', 'renode', 'pastel', 'hyperimba']
-all_config['datasets'] = ['Cora_100', 'Cora_20', 'CiteSeer_100', 'CiteSeer_20', 'PubMed_100', 'PubMed_20', 'Amazon-Photo', 'Amazon-Computers', 'Coauthor-CS']
+all_config['datasets'] = ['Cora_100', 'Cora_20', 'CiteSeer_100', 'CiteSeer_20', 'PubMed_100', 'PubMed_20', 'chameleon_100', 'chameleon_20', 'squirrel_100', 'squirrel_20', 'Actor_100', 'Actor_20', 'Wisconsin_100', 'Wisconsin_20', 'Amazon-Photo', 'Amazon-Computers', 'Coauthor-CS', 'ogbn-arxiv']
 all_config['seeds'] = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
 
 
@@ -43,7 +41,23 @@ def config_args(method, dataset, seed):
         dataset_config = '--dataset PubMed --imb_ratio 100'
     elif dataset == 'PubMed_20':
         dataset_config = '--dataset PubMed --imb_ratio 20'
-    elif dataset in ['Amazon-Photo', 'Amazon-Computers', 'Coauthor-CS']:
+    elif dataset == 'chameleon_100':
+        dataset_config = '--dataset chameleon --imb_ratio 100'
+    elif dataset == 'chameleon_20':
+        dataset_config = '--dataset chameleon --imb_ratio 20'
+    elif dataset == 'squirrel_100':
+        dataset_config = '--dataset squirrel --imb_ratio 100'
+    elif dataset == 'squirrel_20':
+        dataset_config = '--dataset squirrel --imb_ratio 20'
+    elif dataset == 'Actor_100':
+        dataset_config = '--dataset Actor --imb_ratio 100'
+    elif dataset == 'Actor_20':
+        dataset_config = '--dataset Actor --imb_ratio 20'
+    elif dataset == 'Wisconsin_100':
+        dataset_config = '--dataset Wisconsin --imb_ratio 100'
+    elif dataset == 'Wisconsin_20':
+        dataset_config = '--dataset Wisconsin --imb_ratio 20'
+    elif dataset in ['Amazon-Photo', 'Amazon-Computers', 'Coauthor-CS', 'ogbn-arxiv']:
         dataset_config = '--dataset ' + dataset + ' --imb_ratio 0'  # Do not adjust the imbalance
     else:
         raise NotImplementedError()
@@ -57,10 +71,14 @@ def experiment(method, dataset, seed, options, records, records_file, cache_file
             done = True
 
     if not done:
-        if args.gpu:
-            command = "python src/main.py " + config_args(method=method, dataset=dataset, seed=seed) + " " + options + " > " + cache_file
-        else:
-            command = "python src/main.py " + config_args(method=method, dataset=dataset, seed=seed) + " " + options + " --device cpu > " + cache_file
+        options_more = ''
+        if not args.gpu:
+            options_more += ' --device cpu'
+        if args.debug:
+            options_more += ' --debug'
+        
+        command = "python src/main.py " + config_args(method=method, dataset=dataset, seed=seed) + " " + options + options_more + " > " + cache_file
+        
         print('\n')
         print(command)
 
@@ -69,8 +87,8 @@ def experiment(method, dataset, seed, options, records, records_file, cache_file
         end_datetime = datetime.datetime.now()
 
         with open(cache_file) as f:
-            info = f.readline()
-            match = re.match('acc: ([\\d\\.]*), bacc: ([\\d\\.]*), f1: ([\\d\\.]*)', info)
+            info = f.read()
+            match = re.match('[\\S\\s]*acc: ([\\d\\.]*), bacc: ([\\d\\.]*), f1: ([\\d\\.]*)\n', info)
             if match is not None:
                 acc, bacc, f1 = tuple(map(lambda x: float(x), match.groups()))
                 record = dict()

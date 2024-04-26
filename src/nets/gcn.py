@@ -220,6 +220,12 @@ class StandGCN2(nn.Module):
         x = F.dropout(x, p= self.dropout_p, training=self.training)
         x, edge_index = self.conv2(x, edge_index, edge_weight, is_add_self_loops=self.is_add_self_loops)
 
+        # x = F.relu(self.gc1(x, adj))
+        # x = F.dropout(x, self.dropout, training=self.training)
+        # x1 = self.gc2(x, adj)
+        # x2 = self.gc3(x, adj)
+        # return F.log_softmax(x1, dim=1), F.log_softmax(x2, dim=1), F.softmax(x1, dim=1)[:,-1]
+    
         return x
 
 

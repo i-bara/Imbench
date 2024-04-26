@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from torch_scatter import scatter_add
+from ogb.nodeproppred import PygNodePropPredDataset
 
 def get_dataset(name, path, split_type='public'):
     import torch_geometric.transforms as T
@@ -8,6 +9,21 @@ def get_dataset(name, path, split_type='public'):
     if name == "Cora" or name == "CiteSeer" or name == "PubMed":
         from torch_geometric.datasets import Planetoid
         dataset = Planetoid(path, name, transform=T.NormalizeFeatures(), split=split_type)
+    elif name == "chameleon" or name == "squirrel":
+        from dataset.WikipediaNetwork import WikipediaNetwork
+        dataset = WikipediaNetwork(path, name, transform = T.NormalizeFeatures())
+    elif name == "Actor":
+        from torch_geometric.datasets import Actor
+        dataset = Actor(path, transform=T.NormalizeFeatures())
+    elif name == "Wisconsin":
+        from dataset.WebKB import WebKB
+        dataset = WebKB(path, name, transform = T.NormalizeFeatures())
+    # elif name == "chameleon" or name == "squirrel":
+    #     from torch_geometric.datasets import WikipediaNetwork
+    #     dataset = WikipediaNetwork(path, name, transform = T.NormalizeFeatures())
+    # elif name == "Wisconsin":
+    #     from torch_geometric.datasets import WebKB
+    #     dataset = WebKB(path, name, transform = T.NormalizeFeatures())
     elif name == 'Amazon-Computers':
         from torch_geometric.datasets import Amazon
         return Amazon(root=path, name='computers', transform=T.NormalizeFeatures())
@@ -17,6 +33,8 @@ def get_dataset(name, path, split_type='public'):
     elif name == 'Coauthor-CS':
         from torch_geometric.datasets import Coauthor
         return Coauthor(root=path, name='cs', transform=T.NormalizeFeatures())
+    elif name.startswith('ogbn'):
+        return PygNodePropPredDataset(name=name, root=path)
     else:
         raise NotImplementedError("Not Implemented Dataset!")
 
@@ -44,8 +62,10 @@ def make_longtailed_data_remove(edge_index, label, n_data, n_cls, ratio, train_m
     n_round = []
     class_num_list = []
     for i in range(n_cls):
-        assert int(sorted_n_data[0].item() * np.power(mu, i)) >= 1
-        class_num_list.append(int(min(sorted_n_data[0].item() * np.power(mu, i), sorted_n_data[i])))
+        # 4.18: It may cause small dataset failed, set at least 1
+        class_num_list.append(int(min(max(sorted_n_data[0].item() * np.power(mu, i), 1), sorted_n_data[i])))
+        # assert int(sorted_n_data[0].item() * np.power(mu, i)) >= 1
+        # class_num_list.append(int(min(sorted_n_data[0].item() * np.power(mu, i), sorted_n_data[i])))
         """
         Note that we remove low degree nodes sequentially (10 steps)
         since degrees of remaining nodes are changed when some nodes are removed
@@ -99,6 +119,8 @@ def make_longtailed_data_remove(edge_index, label, n_data, n_cls, ratio, train_m
     col_mask = node_mask[col]
     edge_mask = row_mask & col_mask
 
+    # assert set(node_mask) <= set(train_mask)
+    assert torch.all(node_mask[torch.logical_not(train_mask)])
     train_mask = node_mask & train_mask
     idx_info = []
     for i in range(n_cls):
@@ -186,3 +208,44 @@ def get_step_split(imb_ratio, valid_each, labeling_ratio, all_idx, all_label, nc
 
     return train_idx, valid_idx, test_idx, train_node
 
+
+def lt(data, data_train_mask, imb_ratio):
+    n_cls = data.y.max().item() + 1
+
+    ## Data statistic ##
+    stats = data.y[data_train_mask]
+    n_data = []
+    for i in range(n_cls):
+        data_num = (stats == i).sum()
+        n_data.append(int(data_num.item()))
+    idx_info = get_idx_info(data.y, n_cls, data_train_mask)
+    class_num_list = n_data
+
+    ## Construct a long-tailed graph ##
+    class_num_list, data_train_mask, idx_info, train_node_mask, train_edge_mask = \
+        make_longtailed_data_remove(data.edge_index, data.y, n_data, n_cls, imb_ratio, data_train_mask.clone())
+
+    return data_train_mask, train_node_mask, train_edge_mask, class_num_list, idx_info
+
+
+def step(data, imb_ratio):
+    n_cls = data.y.max().item() + 1
+
+    train_idx, valid_idx, test_idx, train_node = get_step_split(imb_ratio=imb_ratio, \
+                                                                valid_each=int(data.x.shape[0] * 0.1 / n_cls), \
+                                                                labeling_ratio=0.1, \
+                                                                all_idx=[i for i in range(data.x.shape[0])], \
+                                                                all_label=data.y.cpu().detach().numpy(), \
+                                                                nclass=n_cls)
+
+    data_train_mask = torch.zeros(data.x.shape[0]).bool().to(data.y.device)
+    data_val_mask = torch.zeros(data.x.shape[0]).bool().to(data.y.device)
+    data_test_mask = torch.zeros(data.x.shape[0]).bool().to(data.y.device)
+    data_train_mask[train_idx] = True
+    data_val_mask[valid_idx] = True
+    data_test_mask[test_idx] = True
+
+    class_num_list = [len(item) for item in train_node]
+    idx_info = [torch.tensor(item) for item in train_node]
+
+    return data_train_mask, data_val_mask, data_test_mask, class_num_list, idx_info
