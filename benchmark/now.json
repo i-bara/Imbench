@@ -1,5 +1,5 @@
 {
     "methods": ["vanilla"],
-    "datasets": ["ogbn-arxiv"],
+    "datasets": ["Cora_20"],
     "seeds": [100]
 }

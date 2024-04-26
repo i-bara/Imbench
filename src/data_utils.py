@@ -48,6 +48,72 @@ def get_idx_info(label, n_cls, train_mask):
         idx_info.append(cls_indices)
     return idx_info
 
+
+def sort(data, data_mask=None):
+    if data_mask is None:
+        y = data.y
+    else:
+        y = data.y[data_mask]
+    
+    n_cls = data.y.max().item() + 1
+
+    class_num_list = []
+    for i in range(n_cls):
+        class_num_list.append(int((y == i).sum().item()))
+    
+    class_num_list_tensor = torch.tensor(class_num_list)
+    class_num_list_sorted_tensor, indices = torch.sort(class_num_list_tensor, descending=True)
+    class_num_list_sorted = class_num_list_sorted_tensor.tolist()
+    inv_indices = torch.zeros(n_cls, dtype=indices.dtype, device=indices.device)
+    for i in range(n_cls):
+        inv_indices[indices[i].item()] = i
+
+    # assert class_num_list_sorted == class_num_list[indices]
+    # assert class_num_list == class_num_list_sorted[inv_indices]
+    assert torch.equal(class_num_list_sorted_tensor, class_num_list_tensor[indices])
+    assert torch.equal(class_num_list_tensor, class_num_list_sorted_tensor[inv_indices])
+    return class_num_list_tensor, indices, inv_indices
+
+
+def get_class_num_list_lt(class_num_list, indices, inv_indices, imb_ratio, n_cls, n):
+    class_num_list = class_num_list[indices]  # sort
+    mu = np.power(imb_ratio, 1 / (n_cls - 1))
+    _mu = 1 / mu
+    n_max = n / (imb_ratio * mu - 1) * (mu - 1) * imb_ratio
+    class_num_list_lt = []
+    for i in range(n_cls):
+        class_num_list_lt.append(round(min(max(n_max * np.power(_mu, i), 1), class_num_list[i])))
+    class_num_list_lt = torch.tensor(class_num_list_lt)
+    return class_num_list_lt[inv_indices]  # unsort
+
+
+def choose(class_num_list, class_num_list_lt, indices, data, data_mask):
+    node_mask = data_mask.clone().detach()
+    for i in indices:
+        idx = torch.arange(data.y.shape[0], dtype=torch.int64, device=data.y.device)[(data.y == i)]
+        remove = class_num_list[i] - class_num_list_lt[i]
+        for r in range(10):
+            # Remove connection with removed nodes
+            row, col = data.edge_index[0], data.edge_index[1]
+            row_mask = node_mask[row]
+            col_mask = node_mask[col]
+            edge_mask = row_mask & col_mask
+
+            # Compute degree
+            degree = scatter_add(torch.ones_like(col[edge_mask]), col[edge_mask], dim_size=data.y.shape[0]).to(data.y.device)
+            degree = degree[idx]
+
+            # Remove nodes with low degree first (number increases as round increases)
+            # Accumulation does not be problem since
+            _, remove_idx = torch.topk(degree, ((r + 1) * remove) // 10, largest=False)
+            remove_idx = idx[remove_idx]
+            node_mask[remove_idx] = False
+    
+    assert torch.equal(node_mask & data_mask, node_mask)
+
+    return node_mask
+
+
 def make_longtailed_data_remove(edge_index, label, n_data, n_cls, ratio, train_mask):
     # Sort from major to minor
     n_data = torch.tensor(n_data)
@@ -207,6 +273,31 @@ def get_step_split(imb_ratio, valid_each, labeling_ratio, all_idx, all_label, nc
     test_idx = list(set(after_train_idx)-set(valid_idx))
 
     return train_idx, valid_idx, test_idx, train_node
+
+
+def get_longtail_split(data, imb_ratio, train_ratio, val_ratio):
+    class_num_list, indices, inv_indices = sort(data=data)
+
+    # train
+    class_num_list_lt = get_class_num_list_lt(class_num_list=class_num_list, indices=indices, inv_indices=inv_indices, \
+                          imb_ratio=imb_ratio, n_cls=data.y.max().item() + 1, n=data.y.shape[0] * train_ratio)
+
+    data_mask = torch.ones(data.y.shape[0], dtype=torch.bool, device=data.y.device)
+
+    data_train_mask = choose(class_num_list, class_num_list_lt, indices, data, data_mask)
+
+    # val
+    class_num_list_lt = get_class_num_list_lt(class_num_list=class_num_list, indices=indices, inv_indices=inv_indices, \
+                          imb_ratio=imb_ratio, n_cls=data.y.max().item() + 1, n=data.y.shape[0] * val_ratio)
+
+    data_mask = data_mask & torch.logical_not(data_train_mask)
+
+    data_val_mask = choose(class_num_list, class_num_list_lt, indices, data, data_mask)
+
+    # test
+    data_test_mask = data_mask & torch.logical_not(data_val_mask)
+
+    return data_train_mask, data_val_mask, data_test_mask
 
 
 def lt(data, data_train_mask, imb_ratio):
