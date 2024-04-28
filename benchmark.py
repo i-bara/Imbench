@@ -76,9 +76,14 @@ def experiment(method, dataset, seed, options, records, records_file, cache_file
             options_more += ' --device cpu'
         if args.debug:
             options_more += ' --debug'
-        
-        command = "python src/main.py " + config_args(method=method, dataset=dataset, seed=seed) + " " + options + options_more + " > " + cache_file
-        
+
+        if args.debug:
+            output = ' >> '
+        else:
+            output = ' > '
+
+        command = "python src/main.py " + config_args(method=method, dataset=dataset, seed=seed) + " " + options + options_more + output + cache_file
+
         print('\n')
         print(command)
 
@@ -135,6 +140,9 @@ def benchmark(name, methods, datasets, seeds):
             records = json.load(f)
     else:
         records = []
+
+    if os.path.exists(cache_file):
+        os.system("rm " + cache_file)
 
     print(f'''
     benchmark_{name}
@@ -200,12 +208,16 @@ def bayes(name, methods, datasets, seeds, options, iters):
 if __name__ == '__main__':
     name = args.name
     config_file = 'benchmark/' + name + '.json'
-    if os.path.isfile(config_file):
-        with open(config_file) as f:
-            config = json.load(f)
-            for config_option in ['methods', 'datasets', 'seeds']:
-                if len(config[config_option]) == 0:
-                    config[config_option] = all_config[config_option]
-            benchmark(name=name, methods=config['methods'], datasets=config['datasets'], seeds=config['seeds'])
-    else:
-        raise FileNotFoundError
+    with open('dictionary.json') as f_dictionary:
+        dictionary = json.load(f_dictionary)
+        if os.path.isfile(config_file):
+            with open(config_file) as f:
+                config = json.load(f)
+                for config_option in ['methods', 'datasets', 'seeds']:
+                    if type(config[config_option]) != list:
+                        config[config_option] = dictionary[config_option][config[config_option]]
+                    elif len(config[config_option]) == 0:
+                        config[config_option] = all_config[config_option]
+                benchmark(name=name, methods=config['methods'], datasets=config['datasets'], seeds=config['seeds'])
+        else:
+            raise FileNotFoundError

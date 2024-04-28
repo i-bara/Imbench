@@ -9,11 +9,12 @@ import torch.nn.functional as F
 from args import parse_args
 from data_utils import get_dataset, get_idx_info, make_longtailed_data_remove, get_step_split, lt, step, get_longtail_split
 from gens import sampling_node_source, neighbor_sampling, neighbor_sampling_ens, duplicate_neighbor, saliency_mixup, saliency_mixup_ens, sampling_idx_individual_dst, MeanAggregation_ens, src_smote, src_imgagn
-from nets import create_gcn, create_gat, create_sage
-from utils import CrossEntropy
+from nets import create_gcn, create_gat, create_sage, create_generator
+from utils import CrossEntropy, euclidean_dist
 from tam import adjust_output
 from sklearn.metrics import balanced_accuracy_score, f1_score
 from neighbor_dist import get_PPR_adj, get_heat_adj, get_ins_neighbor_dist
+
 
 
 
@@ -33,47 +34,49 @@ aggregator = MeanAggregation_ens()
 # gen
 
 def train_gen():
-    # global class_num_list, idx_info
-    # global data_train_mask, data_val_mask, data_test_mask
-    # model_gen.train()
-    # optimizer_gen.zero_grad()
+    global class_num_list, idx_info
+    global data_train_mask, data_val_mask, data_test_mask
+    model_gen.train()
+    optimizer_gen.zero_grad()
 
-    # z = np.random.normal(0, 1, (n_gen, 100))
-    # adj_min = model_generator(z)
-    # x_gen = torch.zeros((n_gen, data.x.shape[1]), dtype=data.x.dtype, device=data.x.device)
-    # edge_index_gen = torch.zeros((2, 0), dtype=data.edge_index.dtype, device=data.edge_index.device)
+    z = np.random.normal(0, 1, (n_gen, 100))
+    z = torch.tensor(z, dtype=torch.float32, device=data.x.device)
+    adj_min = model_gen(z)
+    print(adj_min.shape)
+    x_gen = torch.zeros((n_gen, data.x.shape[1]), dtype=data.x.dtype, device=data.x.device)
+    edge_index_gen = torch.zeros((2, 0), dtype=data.edge_index.dtype, device=data.edge_index.device)
 
-    # for i in range(n_cls):
-    #     w = F.softmax(adj_min[idx_info_gen[i] - n_ori, idx_info[i]], dim=1)
-    #     x_gen[idx_info_gen[i] - n_ori] = torch.mm(w, data.x[idx_info[i]])
-    #     edge_index_gen_ = torch.where(w > 1 / w.shape[1], 1., 0.).nonzero().t().contiguous()
-    #     edge_index_gen_[0] = idx_info_gen[i][edge_index_gen[0]]
-    #     edge_index_gen_[1] = idx_info[i][edge_index_gen[0]]
-    #     edge_index_gen = torch.cat((edge_index_gen, edge_index_gen_), dim=1)
+    stat_gen(data=data_new, data_train_mask=data_train_mask, data_val_mask=data_val_mask, data_test_mask=data_test_mask, data_gen_mask=data_gen_mask)
 
-    # data_new = src_imgagn(data=data, x_gen=x_gen, y_gen=y_gen, edge_index_gen=edge_index_gen)
+    for i in range(n_cls):
+        w = F.softmax(adj_min[idx_info_gen[i] - n_ori, :][:, idx_info[i]], dim=1)
+        x_gen[idx_info_gen[i] - n_ori] = torch.mm(w, data.x[idx_info[i]])
+        edge_index_gen_ = torch.where(w > 1 / w.shape[1], 1., 0.).nonzero().t().contiguous()
+        debug_all(edge_index_gen_)
+        edge_index_gen_0 = idx_info_gen[i][edge_index_gen_[0]]
+        edge_index_gen_1 = idx_info[i][edge_index_gen_[1]]
+        edge_index_gen__ = torch.stack((edge_index_gen_0, edge_index_gen_1), dim=0)
+        print(edge_index_gen.shape)
+        print(edge_index_gen_0.shape)
+        print(edge_index_gen_1.shape)
+        print(edge_index_gen__.shape)
+        edge_index_gen = torch.cat((edge_index_gen, edge_index_gen__), dim=1)
 
-    # output, output_gen = model(data_new.x, data_new.edge_index)
+    data_new.x = torch.cat((data.x.clone().detach(), x_gen.clone().detach()), dim=0)
+    data_new.edge_index = torch.cat((data.edge_index.clone().detach(), edge_index_gen.clone().detach()), dim=1)
 
-    # dist = 0
-    # for i in range(n_cls):
-    #     x_cls = data_new.x[idx_info[i]]
-    #     x_gen_cls = data_new.x[idx_info_gen[i]]
-    #     dist += euclidean_dist(x_cls, x_gen_cls).mean()
-    # loss_gen = F.cross_entropy(output_gen[data_gen_mask], torch.LongTensor(n_gen).fill_(0).to(data_new.y.device)) \
-    #          + F.cross_entropy(output[data_gen_mask], data_new.y[data_gen_mask]) \
-    #          + dist
+    output, output_gen = model(data_new.x, data_new.edge_index)
 
-    # loss_gen.backward()
+    dist = 0
+    for i in range(n_cls):
+        x_cls = data_new.x[idx_info[i]]
+        x_gen_cls = data_new.x[idx_info_gen[i]]
+        dist += euclidean_dist(x_cls, x_gen_cls).mean()
+    loss_gen = F.cross_entropy(output_gen[data_gen_mask], torch.LongTensor(n_gen).fill_(0).to(data_new.y.device)) \
+             + F.cross_entropy(output[data_gen_mask], data_new.y[data_gen_mask]) \
+             + dist
 
-
-
-
-
-
-
-
-
+    loss_gen.backward()
 
 
 
@@ -187,18 +190,13 @@ def train():
             criterion(output[new_train_mask], new_y).backward()
 
     elif args.method == 'imgagn':
-        output, output_gen, output_AUC = model(features, adj)
-        labels_true = torch.cat((torch.LongTensor(num_real).fill_(0), torch.LongTensor(num_false).fill_(1)))
-
-        if args.cuda:
-            labels_true=labels_true.cuda()
-
-        loss_dis = - euclidean_dist(features[minority], features[majority]).mean()
-        loss_train = F.nll_loss(output[idx_train], labels[idx_train]) \
-                    + F.nll_loss(output_gen[idx_train], labels_true) \
-                    +loss_dis
-
-        loss_train.backward()
+        # if epoch_gen == 8 and epoch == 40:
+        #     debug_all(data_new.x)
+        output, output_gen = model(data_new.x.detach(), data_new.edge_index.detach())
+        loss = F.cross_entropy(output_gen[data_train_mask | data_gen_mask], torch.cat((torch.LongTensor(n_train).fill_(0), torch.LongTensor(n_gen).fill_(1))).to(data_new.y.device)) \
+             + F.cross_entropy(output[data_train_mask | data_gen_mask], data_new.y[data_train_mask | data_gen_mask])
+                    # +loss_dis
+        loss.backward()
 
     else: ## Vanilla Train ##
         output = model(data.x, data.edge_index[:,train_edge_mask], None)
@@ -206,8 +204,13 @@ def train():
 
     with torch.no_grad():
         model.eval()
-        output = model(data.x, data.edge_index[:,train_edge_mask])
-        val_loss= F.cross_entropy(output[data_val_mask], data.y[data_val_mask])
+        if args.method == 'imgagn':
+            output, output_gen = model(data_new.x, data_new.edge_index)
+            val_loss = F.cross_entropy(output_gen[data_val_mask], torch.LongTensor(n_val).fill_(0).to(data_new.y.device)) \
+                     + F.cross_entropy(output[data_val_mask], data_new.y[data_val_mask])
+        else:
+            output = model(data.x, data.edge_index[:,train_edge_mask])
+            val_loss = F.cross_entropy(output[data_val_mask], data.y[data_val_mask])
     optimizer.step()
     scheduler.step(val_loss)
     return
@@ -215,9 +218,14 @@ def train():
 @torch.no_grad()
 def test():
     model.eval()
-    logits = model(data.x, data.edge_index[:,train_edge_mask])
+    if args.method == 'imgagn':
+        logits, _ = model(data.x, data.edge_index[:,train_edge_mask])
+    else:
+        logits = model(data.x, data.edge_index[:,train_edge_mask])
     accs, baccs, f1s = [], [], []
     for mask in [data_train_mask, data_val_mask, data_test_mask]:
+        if args.method == 'imgagn':
+            mask = mask[torch.logical_not(data_gen_mask)]
         pred = logits[mask].max(1)[1]
         y_pred = pred.cpu().numpy()
         y_true = data.y[mask].cpu().numpy()
@@ -319,6 +327,23 @@ def stat(data, data_train_mask, data_val_mask, data_test_mask):
     debug('total   %-8d%-8d%-8d%-8d' % (idx_train.shape[0], idx_val.shape[0], idx_test.shape[0], idx_train.shape[0] + idx_val.shape[0] + idx_test.shape[0]))
 
 
+def stat_gen(data, data_train_mask, data_val_mask, data_test_mask, data_gen_mask):
+    idx_train = torch.tensor(range(data_train_mask.shape[0]), device=data_train_mask.device)[data_train_mask]
+    idx_val = torch.tensor(range(data_val_mask.shape[0]), device=data_val_mask.device)[data_val_mask]
+    idx_test = torch.tensor(range(data_test_mask.shape[0]), device=data_test_mask.device)[data_test_mask]
+    idx_gen = torch.tensor(range(data_gen_mask.shape[0]), device=data_gen_mask.device)[data_gen_mask]
+
+    # Output the split distribution
+    debug('class   train   val     test    gen     total   ')
+    for i in range(data.y.max().item() + 1):
+        idx_train_i = idx_train[(data.y == i)[idx_train]]
+        idx_val_i = idx_val[(data.y == i)[idx_val]]
+        idx_test_i = idx_test[(data.y == i)[idx_test]]
+        idx_gen_i = idx_gen[(data.y == i)[idx_gen]]
+        debug('%-4d    %-8d%-8d%-8d%-8d%-8d' % (i, idx_train_i.shape[0], idx_val_i.shape[0], idx_test_i.shape[0], idx_gen_i.shape[0], idx_train_i.shape[0] + idx_val_i.shape[0] + idx_test_i.shape[0] + idx_gen_i.shape[0]))
+    debug('total   %-8d%-8d%-8d%-8d%-8d' % (idx_train.shape[0], idx_val.shape[0], idx_test.shape[0], idx_gen.shape[0], idx_train.shape[0] + idx_val.shape[0] + idx_test.shape[0] + idx_gen.shape[0]))
+
+
 if args.dataset in ['Cora', 'CiteSeer', 'PubMed', 'chameleon', 'squirrel', 'Actor', 'Wisconsin']:
     if args.dataset in ['Cora', 'CiteSeer', 'PubMed']:
         data_train_mask = data.train_mask.clone()
@@ -330,12 +355,16 @@ if args.dataset in ['Cora', 'CiteSeer', 'PubMed', 'chameleon', 'squirrel', 'Acto
         data_test_mask = data.test_mask[:, 0].clone()
 
     data_train_mask, data_val_mask, data_test_mask = get_longtail_split(data, imb_ratio=args.imb_ratio, train_ratio=0.1, val_ratio=0.1)
+
+    debug(f'feature size: {data.x.shape[1]}')
+    debug(f'number of edges: {data.edge_index.shape[1]}')
     stat(data, data_train_mask, data_val_mask, data_test_mask)
+
     train_node_mask = data_train_mask | data_val_mask | data_test_mask
     train_edge_mask = torch.ones(data.edge_index.shape[1], dtype=torch.bool)
+
     idx_info = [torch.arange(data.y.shape[0], device=data.y.device)[(data.y == i) & data_train_mask] for i in range(n_cls)]
     class_num_list = [idx_info[i].shape[0] for i in range(n_cls)]
-    exit()
 
     # stat(data, data_train_mask, data_val_mask, data_test_mask)
     # data_train_mask, train_node_mask, train_edge_mask, class_num_list, idx_info = lt(data=data, data_train_mask=data_train_mask, imb_ratio=args.imb_ratio)
@@ -357,6 +386,8 @@ elif args.dataset in ['Coauthor-CS', 'Amazon-Computers', 'Amazon-Photo', 'ogbn-a
 
     data_train_mask, data_val_mask, data_test_mask, class_num_list, idx_info = step(data=data, imb_ratio=args.imb_ratio)
 
+    debug(f'feature size: {data.x.shape[1]}')
+    debug(f'number of edges: {data.edge_index.shape[1]}')
     stat(data, data_train_mask, data_val_mask, data_test_mask)
 
     train_node_mask = data_train_mask | data_val_mask | data_test_mask
@@ -418,7 +449,7 @@ def neighbor(data, train_edge_mask):
 neighbor_dist_list = neighbor(data=data, train_edge_mask=train_edge_mask)
 
 if args.net == 'GCN':
-    model = create_gcn(nfeat=dataset.num_features, nhid=args.feat_dim, nclass=n_cls, dropout=args.dropout, nlayer=args.n_layer)
+    model = create_gcn(nfeat=dataset.num_features, nhid=args.feat_dim, nclass=n_cls, dropout=args.dropout, nlayer=args.n_layer, has_discriminator=args.method == 'imgagn')
 elif args.net == 'GAT':
     model = create_gat(nfeat=dataset.num_features, nhid=args.feat_dim, nclass=n_cls, dropout=args.dropout, nlayer=args.n_layer)
 elif args.net == "SAGE":
@@ -438,33 +469,41 @@ saliency, prev_out = None, None
 if args.method == 'imgagn':
     ratio_generated = 1.
     class_num_max = max(class_num_list)
-    class_num_gen_list = list(map(lambda x: ratio_generated * class_num_max - x, class_num_list))
+    class_num_gen_list = list(map(lambda x: round(ratio_generated * class_num_max - x), class_num_list))
 
     n_ori = data.x.shape[0]
+    n_train = sum(class_num_list)
+    n_val = sum(data_val_mask).item()
     n_gen = sum(class_num_gen_list)
-    data_train_mask = torch.cat(data_train_mask, torch.zeros(n_gen, dtype=torch.bool, device=data.y.device))
-    data_val_mask = torch.cat(data_val_mask, torch.zeros(n_gen, dtype=torch.bool, device=data.y.device))
-    data_test_mask = torch.cat(data_test_mask, torch.zeros(n_gen, dtype=torch.bool, device=data.y.device))
-    data_gen_mask = torch.cat(torch.zeros(n_ori, dtype=torch.bool, device=data.y.device), \
-                              torch.ones(n_gen, dtype=torch.bool, device=data.y.device))
+    data_train_mask = torch.cat((data_train_mask, torch.zeros(n_gen, dtype=torch.bool, device=data.y.device)), dim=0)
+    data_val_mask = torch.cat((data_val_mask, torch.zeros(n_gen, dtype=torch.bool, device=data.y.device)), dim=0)
+    data_test_mask = torch.cat((data_test_mask, torch.zeros(n_gen, dtype=torch.bool, device=data.y.device)), dim=0)
+    data_gen_mask = torch.cat((torch.zeros(n_ori, dtype=torch.bool, device=data.y.device), \
+                              torch.ones(n_gen, dtype=torch.bool, device=data.y.device)), dim=0)
     
     train_idx = data_train_mask.nonzero().squeeze()
     val_idx = data_val_mask.nonzero().squeeze()  # not used yet
     test_idx = data_test_mask.nonzero().squeeze()  # not used yet
     gen_idx = data_test_mask.nonzero().squeeze()
 
-    idx_info_val = [torch.arange(data.y.shape[0], device=data.y.device)[(data.y == i) & data_val_mask] for i in range(n_cls)]
-    idx_info_test = [torch.arange(data.y.shape[0], device=data.y.device)[(data.y == i) & data_test_mask] for i in range(n_cls)]
-    idx_info_gen = [torch.arange(data.y.shape[0], device=data.y.device)[(data.y == i) & data_gen_mask] for i in range(n_cls)]
-
     y_gen = []
     for i in range(n_cls):
         y_gen += [i] * class_num_gen_list[i]
     y_gen = torch.tensor(y_gen, dtype=data.y.dtype, device=data.y.device)
 
+    data_new = data.clone().detach()
+    data_new.y = torch.cat((data.y.clone().detach(), y_gen.clone().detach()), dim=0)
+    idx_info_val = [torch.arange(data_new.y.shape[0], device=data_new.y.device)[(data_new.y == i) & data_val_mask] for i in range(n_cls)]
+    idx_info_test = [torch.arange(data_new.y.shape[0], device=data_new.y.device)[(data_new.y == i) & data_test_mask] for i in range(n_cls)]
+    idx_info_gen = [torch.arange(data_new.y.shape[0], device=data_new.y.device)[(data_new.y == i) & data_gen_mask] for i in range(n_cls)]
+
+    model_gen = create_generator(n_ori)
+    model_gen = model_gen.to(device)
+    optimizer_gen = torch.optim.Adam([dict(params=model_gen.reg_params, weight_decay=args.weight_decay), dict(params=model.non_reg_params, weight_decay=0),], lr=args.lr)
+
     for epoch_gen in range(10):
         train_gen()
-        for epoch in tqdm.tqdm(range(args.epoch)):
+        for epoch in tqdm.tqdm(range(args.epoch // 10)):
             train()
             accs, baccs, f1s = test()
             train_acc, val_acc, tmp_test_acc = accs

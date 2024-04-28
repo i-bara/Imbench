@@ -1,0 +1,13 @@
+{
+    "methods": {
+        "v": ["vanilla", "smote", "ens", "sha"]
+    },
+    "datasets": {
+        "l100": ["Cora_100", "CiteSeer_100", "PubMed_100", "chameleon_100", "squirrel_100", "Actor_100"],
+        "s100": ["Amazon-Computers", "Amazon-Photo"],
+        "l20": ["Cora_20", "CiteSeer_20", "PubMed_20", "chameleon_20", "squirrel_20", "Actor_20"]
+    },
+    "seeds": {
+        "all": [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
+    }
+}

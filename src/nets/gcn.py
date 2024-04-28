@@ -184,32 +184,53 @@ class GCNConv(MessagePassing):
 
 
 class StandGCN1(nn.Module):
-    def __init__(self, nfeat, nhid, nclass, dropout,nlayer=1):
+    def __init__(self, nfeat, nhid, nclass, dropout,nlayer=1, has_discriminator=False):
         super(StandGCN1, self).__init__()
         self.conv1 = GCNConv(nfeat, nclass, cached=False, normalize=True)
+
+        # For GAN
+        self.discriminator = GCNConv(nhid, 2, cached=False, normalize=True)
+        self.has_discriminator = has_discriminator
+
         self.reg_params = []
-        self.non_reg_params = self.conv1.parameters()
+        if has_discriminator:
+            self.non_reg_params = list(self.conv1.parameters()) + list(self.discriminator.parameters())
+        else:
+            self.non_reg_params = self.conv1.parameters()
+        
         self.is_add_self_loops = True
 
     def forward(self, x, adj, edge_weight=None):
 
         edge_index = adj
-        x, edge_index = self.conv1(x, edge_index, edge_weight, is_add_self_loops=self.is_add_self_loops)
+        x1, edge_index = self.conv1(x, edge_index, edge_weight, is_add_self_loops=self.is_add_self_loops)
 
-        return x
+        if self.has_discriminator:
+            x2, edge_index = self.discriminator(x, edge_index, edge_weight, is_add_self_loops=self.is_add_self_loops)
+            return x1, x2
+        else:
+            return x1
 
 
 class StandGCN2(nn.Module):
-    def __init__(self, nfeat, nhid, nclass, dropout,nlayer=2):
+    def __init__(self, nfeat, nhid, nclass, dropout,nlayer=2, has_discriminator=False):
         super(StandGCN2, self).__init__()
         self.conv1 = GCNConv(nfeat, nhid, cached= False, normalize=True)
         self.conv2 = GCNConv(nhid, nclass, cached=False, normalize=True)
+
+        # For GAN
+        self.discriminator = GCNConv(nhid, 2, cached=False, normalize=True)
+        self.has_discriminator = has_discriminator
+
         self.dropout_p = dropout
 
         self.is_add_self_loops = True
 
         self.reg_params = list(self.conv1.parameters())
-        self.non_reg_params = self.conv2.parameters()
+        if has_discriminator:
+            self.non_reg_params = list(self.conv2.parameters()) + list(self.discriminator.parameters())
+        else:
+            self.non_reg_params = self.conv2.parameters()
 
 
     def forward(self, x, adj, edge_weight=None):
@@ -218,28 +239,39 @@ class StandGCN2(nn.Module):
         x = F.relu(x)
 
         x = F.dropout(x, p= self.dropout_p, training=self.training)
-        x, edge_index = self.conv2(x, edge_index, edge_weight, is_add_self_loops=self.is_add_self_loops)
+        x1, edge_index = self.conv2(x, edge_index, edge_weight, is_add_self_loops=self.is_add_self_loops)
 
         # x = F.relu(self.gc1(x, adj))
         # x = F.dropout(x, self.dropout, training=self.training)
         # x1 = self.gc2(x, adj)
         # x2 = self.gc3(x, adj)
         # return F.log_softmax(x1, dim=1), F.log_softmax(x2, dim=1), F.softmax(x1, dim=1)[:,-1]
-    
-        return x
+        if self.has_discriminator:
+            x2, edge_index = self.discriminator(x, edge_index, edge_weight, is_add_self_loops=self.is_add_self_loops)
+            return x1, x2
+        else:
+            return x1
 
 
 class StandGCNX(nn.Module):
-    def __init__(self, nfeat, nhid, nclass, dropout,nlayer=3):
+    def __init__(self, nfeat, nhid, nclass, dropout,nlayer=3, has_discriminator=False):
         super(StandGCNX, self).__init__()
         self.conv1 = GCNConv(nfeat, nhid, cached= False, normalize=True)
         self.conv2 = GCNConv(nhid, nclass, cached=False, normalize=True)
         self.convx = nn.ModuleList([GCNConv(nhid, nhid) for _ in range(nlayer-2)])
+
+        # For GAN
+        self.discriminator = GCNConv(nhid, 2, cached=False, normalize=True)
+        self.has_discriminator = has_discriminator
+
         self.dropout_p = dropout
 
         self.is_add_self_loops = True
         self.reg_params = list(self.conv1.parameters()) + list(self.convx.parameters())
-        self.non_reg_params = self.conv2.parameters()
+        if has_discriminator:
+            self.non_reg_params = list(self.conv2.parameters()) + list(self.discriminator.parameters())
+        else:
+            self.non_reg_params = self.conv2.parameters()
 
     def forward(self, x, adj, edge_weight=None):
         edge_index = adj
@@ -252,8 +284,13 @@ class StandGCNX(nn.Module):
             x = F.relu(x)
 
         x = F.dropout(x, p= self.dropout_p, training=self.training)
-        x, edge_index = self.conv2(x, edge_index, edge_weight,is_add_self_loops=self.is_add_self_loops)
-        return x
+        x1, edge_index = self.conv2(x, edge_index, edge_weight,is_add_self_loops=self.is_add_self_loops)
+
+        if self.has_discriminator:
+            x2, edge_index = self.discriminator(x, edge_index, edge_weight, is_add_self_loops=self.is_add_self_loops)
+            return x1, x2
+        else:
+            return x1
 
 
 class GCN(torch.nn.Module):
@@ -288,14 +325,14 @@ class GCN(torch.nn.Module):
         return x
 
 
-def create_gcn(nfeat, nhid, nclass, dropout, nlayer):
+def create_gcn(nfeat, nhid, nclass, dropout, nlayer, has_discriminator=False):
     # return GCN(n_layer=nlayer, input_dim=nfeat, feat_dim=nhid, n_cls=nclass, \
     #                 normalize=True, is_add_self_loops=True)
     if nlayer == 1:
-        model = StandGCN1(nfeat, nhid, nclass, dropout,nlayer)
+        model = StandGCN1(nfeat, nhid, nclass, dropout, nlayer, has_discriminator)
     elif nlayer == 2:
-        model = StandGCN2(nfeat, nhid, nclass, dropout,nlayer)
+        model = StandGCN2(nfeat, nhid, nclass, dropout, nlayer, has_discriminator)
     else:
-        model = StandGCNX(nfeat, nhid, nclass, dropout,nlayer)
+        model = StandGCNX(nfeat, nhid, nclass, dropout, nlayer, has_discriminator)
 
     return model

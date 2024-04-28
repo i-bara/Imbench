@@ -53,8 +53,8 @@ class WikipediaNetwork(InMemoryDataset):
             raise AttributeError("The dataset 'crocodile' is not available in "
                                  "case 'geom_gcn_preprocess=True'")
         super().__init__(root, transform, pre_transform)
-        print(torch.load(self.processed_paths[0]))
-        print(len(torch.load(self.processed_paths[0])))
+        # print(torch.load(self.processed_paths[0]))
+        # print(len(torch.load(self.processed_paths[0])))
         self.data, self.slices = torch.load(self.processed_paths[0])
 
     @property
@@ -103,22 +103,22 @@ class WikipediaNetwork(InMemoryDataset):
             y = [int(r.split('\t')[2]) for r in data]
             y = torch.tensor(y, dtype=torch.long)
 
-            import os
-            print(os.path.isfile(self.raw_paths[1]))
-            print(f)
+            # import os
+            # print(os.path.isfile(self.raw_paths[1]))
+            # print(f)
             with open(self.raw_paths[1], 'r') as f:
                 r = f.read()
-                print(f.tell())
+                # print(f.tell())
                 f.seek(0)
-                print(r.split('\n'))
-                print(r.split('\n')[1:-1])
+                # print(r.split('\n'))
+                # print(r.split('\n')[1:-1])
                 data = f.read().split('\n')[1:-1]
-                print(data)
+                # print(data)
                 data = [[int(v) for v in r.split('\t')] for r in data]
-            print(data)
+            # print(data)
             edge_index = torch.tensor(data, dtype=torch.long).t().contiguous()
-            print(edge_index)
-            print(edge_index.shape)
+            # print(edge_index)
+            # print(edge_index.shape)
             edge_index, _ = coalesce(edge_index, None, x.size(0), x.size(0))
 
             # data = np.load(self.raw_paths[0], 'r', allow_pickle=True)

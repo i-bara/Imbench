@@ -1,5 +1,5 @@
 {
-    "methods": ["vanilla"],
-    "datasets": ["Cora_20"],
+    "methods": ["imgagn"],
+    "datasets": ["Cora_100"],
     "seeds": [100]
 }
