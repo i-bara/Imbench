@@ -79,7 +79,10 @@ def split_lt(class_num_list, indices, inv_indices, imb_ratio, n_cls, n):
     class_num_list = class_num_list[indices]  # sort
     mu = np.power(imb_ratio, 1 / (n_cls - 1))
     _mu = 1 / mu
-    n_max = n / (imb_ratio * mu - 1) * (mu - 1) * imb_ratio
+    if imb_ratio == 1:
+        n_max = n / n_cls
+    else:
+        n_max = n / (imb_ratio * mu - 1) * (mu - 1) * imb_ratio
     class_num_list_lt = []
     for i in range(n_cls):
         class_num_list_lt.append(round(min(max(n_max * np.power(_mu, i), 1), class_num_list[i])))

@@ -5,9 +5,14 @@
     "datasets": {
         "l100": ["Cora_100", "CiteSeer_100", "PubMed_100", "chameleon_100", "squirrel_100", "Actor_100"],
         "s100": ["Amazon-Computers", "Amazon-Photo"],
-        "l20": ["Cora_20", "CiteSeer_20", "PubMed_20", "chameleon_20", "squirrel_20", "Actor_20"]
+        "l20": ["Cora_20", "CiteSeer_20", "PubMed_20", "chameleon_20", "squirrel_20", "Actor_20"],
+        "l1": ["Cora_1", "CiteSeer_1", "PubMed_1", "chameleon_1", "squirrel_1", "Actor_1"],
+        "l": [
+            "Cora_100", "CiteSeer_100", "PubMed_100", "chameleon_100", "squirrel_100", "Actor_100",
+            "Cora_20", "CiteSeer_20", "PubMed_20", "chameleon_20", "squirrel_20", "Actor_20",
+            "Cora_1", "CiteSeer_1", "PubMed_1", "chameleon_1", "squirrel_1", "Actor_1"
+        ]
     },
     "seeds": {
-        "all": [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
     }
 }

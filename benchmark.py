@@ -23,40 +23,50 @@ args = parse_args()
 
 all_config = dict()
 all_config['methods'] = ['vanilla', 'drgcn', 'smote', 'imgagn', 'ens', 'tam', 'lte4g', 'sann', 'sha', 'renode', 'pastel', 'hyperimba']
-all_config['datasets'] = ['Cora_100', 'Cora_20', 'CiteSeer_100', 'CiteSeer_20', 'PubMed_100', 'PubMed_20', 'chameleon_100', 'chameleon_20', 'squirrel_100', 'squirrel_20', 'Actor_100', 'Actor_20', 'Wisconsin_100', 'Wisconsin_20', 'Amazon-Photo', 'Amazon-Computers', 'Coauthor-CS', 'ogbn-arxiv']
+all_config['datasets'] = ['Cora_100', 'Cora_20', 'Cora_1', 
+                          'CiteSeer_100', 'CiteSeer_20', 'CiteSeer_1', 
+                          'PubMed_100', 'PubMed_20', 'PubMed_1', 
+                          'chameleon_100', 'chameleon_20', 'chameleon_1', 
+                          'squirrel_100', 'squirrel_20', 'squirrel_1', 
+                          'Actor_100', 'Actor_20', 'Actor_1', 
+                          'Wisconsin_100', 'Wisconsin_20', 'Wisconsin_1', 
+                          'Amazon-Photo', 'Amazon-Computers', 'Coauthor-CS', 'ogbn-arxiv']
 all_config['seeds'] = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
 
 
 def config_args(method, dataset, seed):
     method_config = '--method ' + method
-    if dataset == 'Cora_100':
-        dataset_config = '--dataset Cora --imb_ratio 100'
-    elif dataset == 'Cora_20':
-        dataset_config = '--dataset Cora --imb_ratio 20'
-    elif dataset == 'CiteSeer_100':
-        dataset_config = '--dataset CiteSeer --imb_ratio 100'
-    elif dataset == 'CiteSeer_20':
-        dataset_config = '--dataset CiteSeer --imb_ratio 20'
-    elif dataset == 'PubMed_100':
-        dataset_config = '--dataset PubMed --imb_ratio 100'
-    elif dataset == 'PubMed_20':
-        dataset_config = '--dataset PubMed --imb_ratio 20'
-    elif dataset == 'chameleon_100':
-        dataset_config = '--dataset chameleon --imb_ratio 100'
-    elif dataset == 'chameleon_20':
-        dataset_config = '--dataset chameleon --imb_ratio 20'
-    elif dataset == 'squirrel_100':
-        dataset_config = '--dataset squirrel --imb_ratio 100'
-    elif dataset == 'squirrel_20':
-        dataset_config = '--dataset squirrel --imb_ratio 20'
-    elif dataset == 'Actor_100':
-        dataset_config = '--dataset Actor --imb_ratio 100'
-    elif dataset == 'Actor_20':
-        dataset_config = '--dataset Actor --imb_ratio 20'
-    elif dataset == 'Wisconsin_100':
-        dataset_config = '--dataset Wisconsin --imb_ratio 100'
-    elif dataset == 'Wisconsin_20':
-        dataset_config = '--dataset Wisconsin --imb_ratio 20'
+    if dataset.endswith('_100') or dataset.endswith('_20') or dataset.endswith('_1'):
+        dataset_name, imb_ratio = dataset.split('_')
+        dataset_config = f'--dataset {dataset_name} --imb_ratio {imb_ratio}'
+    # if dataset == 'Cora_100':
+    #     dataset_config = '--dataset Cora --imb_ratio 100'
+    # elif dataset == 'Cora_20':
+    #     dataset_config = '--dataset Cora --imb_ratio 20'
+    # elif dataset == 'CiteSeer_100':
+    #     dataset_config = '--dataset CiteSeer --imb_ratio 100'
+    # elif dataset == 'CiteSeer_20':
+    #     dataset_config = '--dataset CiteSeer --imb_ratio 20'
+    # elif dataset == 'PubMed_100':
+    #     dataset_config = '--dataset PubMed --imb_ratio 100'
+    # elif dataset == 'PubMed_20':
+    #     dataset_config = '--dataset PubMed --imb_ratio 20'
+    # elif dataset == 'chameleon_100':
+    #     dataset_config = '--dataset chameleon --imb_ratio 100'
+    # elif dataset == 'chameleon_20':
+    #     dataset_config = '--dataset chameleon --imb_ratio 20'
+    # elif dataset == 'squirrel_100':
+    #     dataset_config = '--dataset squirrel --imb_ratio 100'
+    # elif dataset == 'squirrel_20':
+    #     dataset_config = '--dataset squirrel --imb_ratio 20'
+    # elif dataset == 'Actor_100':
+    #     dataset_config = '--dataset Actor --imb_ratio 100'
+    # elif dataset == 'Actor_20':
+    #     dataset_config = '--dataset Actor --imb_ratio 20'
+    # elif dataset == 'Wisconsin_100':
+    #     dataset_config = '--dataset Wisconsin --imb_ratio 100'
+    # elif dataset == 'Wisconsin_20':
+    #     dataset_config = '--dataset Wisconsin --imb_ratio 20'
     elif dataset in ['Amazon-Photo', 'Amazon-Computers', 'Coauthor-CS', 'ogbn-arxiv']:
         dataset_config = '--dataset ' + dataset + ' --imb_ratio 0'  # Do not adjust the imbalance
     else:
@@ -213,11 +223,18 @@ if __name__ == '__main__':
         dictionary = json.load(f_dictionary)
         if os.path.isfile(config_file):
             with open(config_file) as f:
-                config = json.load(f)
+                config = json.load(f)  # A list of valid names
                 for config_option in ['methods', 'datasets', 'seeds']:
                     if type(config[config_option]) != list:
-                        config[config_option] = dictionary[config_option][config[config_option]]
-                    elif len(config[config_option]) == 0:
+                        if config[config_option] in dictionary[config_option]:  # Use dictionary.json
+                            config[config_option] = dictionary[config_option][config[config_option]]
+                        elif config[config_option] in all_config[config_option]:  # Any valid name
+                            config[config_option] = [config[config_option]]
+                        elif config[config_option] == 'all':  # 'all'
+                            config[config_option] = all_config[config_option]
+                        else:
+                            raise NotImplementedError
+                    elif len(config[config_option]) == 0:  # If it is an empty list, equivalent to 'all'
                         config[config_option] = all_config[config_option]
                 benchmark(name=name, methods=config['methods'], datasets=config['datasets'], seeds=config['seeds'])
         else:
