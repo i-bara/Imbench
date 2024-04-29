@@ -6,7 +6,7 @@ import pandas as pd
 from openpyxl import load_workbook
 import statistics
 
-method_list = ['vanilla', 'drgcn', 'smote', 'imgagn', 'ens', 'tam', 'lte4g', 'sann', 'sha', 'renode', 'pastel', 'hyperimba']
+method_list = ['vanilla', 'drgcn', 'smote', 'imgagn', 'ens', 'tam', 'lte4g', 'topoauc', 'sann', 'sha', 'renode', 'pastel', 'hyperimba']
 score_list = ['acc', 'bacc', 'f1', 'auc']
 dataset_list = ['Cora_100', 'Cora_20', 'CiteSeer_100', 'CiteSeer_20', 'PubMed_100', 'PubMed_20', 'chameleon_100', 'chameleon_20', 'squirrel_100', 'squirrel_20', 'Actor_100', 'Actor_20', 'Wisconsin_100', 'Wisconsin_20', 'Amazon-Photo', 'Amazon-Computers', 'Coauthor-CS']
 seed_list = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
@@ -26,8 +26,10 @@ def get_method_offset(method):
         return 5
     elif method == 'lte4g':
         return 6
-    elif method == 'sann':
+    elif method == 'topoauc':
         return 7
+    elif method == 'sann':
+        return 8
     elif method == 'sha':
         return 9
     elif method == 'renode':
@@ -57,31 +59,45 @@ def get_dataset_offset(dataset):
     if dataset == 'Cora_100':
         return (4, 2)
     elif dataset == 'Cora_20':
-        return (4, 5)
+        return (4, 6)
+    elif dataset == 'Cora_1':
+        return (4, 10)
     elif dataset == 'CiteSeer_100':
-        return (4, 8)
-    elif dataset == 'CiteSeer_20':
-        return (4, 11)
-    elif dataset == 'PubMed_100':
         return (4, 14)
-    elif dataset == 'PubMed_20':
-        return (4, 17)
-    elif dataset == 'chameleon_100':
-        return (4, 20)
-    elif dataset == 'chameleon_20':
-        return (4, 23)
-    elif dataset == 'squirrel_100':
+    elif dataset == 'CiteSeer_20':
+        return (4, 18)
+    elif dataset == 'CiteSeer_1':
+        return (4, 22)
+    elif dataset == 'PubMed_100':
         return (4, 26)
-    elif dataset == 'squirrel_20':
-        return (4, 29)
-    elif dataset == 'Actor_100':
-        return (4, 32)
-    elif dataset == 'Actor_20':
-        return (4, 35)
-    elif dataset == 'Wisconsin_100':
+    elif dataset == 'PubMed_20':
+        return (4, 30)
+    elif dataset == 'PubMed_1':
+        return (4, 34)
+    elif dataset == 'chameleon_100':
         return (4, 38)
+    elif dataset == 'chameleon_20':
+        return (4, 42)
+    elif dataset == 'chameleon_1':
+        return (4, 46)
+    elif dataset == 'squirrel_100':
+        return (4, 50)
+    elif dataset == 'squirrel_20':
+        return (4, 54)
+    elif dataset == 'squirrel_1':
+        return (4, 58)
+    elif dataset == 'Actor_100':
+        return (4, 62)
+    elif dataset == 'Actor_20':
+        return (4, 66)
+    elif dataset == 'Actor_1':
+        return (4, 70)
+    elif dataset == 'Wisconsin_100':
+        return (4, 74)
     elif dataset == 'Wisconsin_20':
-        return (4, 41)
+        return (4, 78)
+    elif dataset == 'Wisconsin_1':
+        return (4, 82)
     elif dataset == 'Amazon-Photo':
         return (22, 2)
     elif dataset == 'Amazon-Computers':
