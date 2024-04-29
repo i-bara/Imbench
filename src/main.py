@@ -12,7 +12,7 @@ from gens import sampling_node_source, neighbor_sampling, neighbor_sampling_ens,
 from nets import create_gcn, create_gat, create_sage, create_generator
 from utils import CrossEntropy, euclidean_dist
 from tam import adjust_output
-from sklearn.metrics import balanced_accuracy_score, f1_score
+from sklearn.metrics import balanced_accuracy_score, f1_score, roc_auc_score
 from neighbor_dist import get_PPR_adj, get_heat_adj, get_ins_neighbor_dist
 
 
@@ -222,7 +222,7 @@ def test():
         logits, _ = model(data.x, data.edge_index[:,train_edge_mask])
     else:
         logits = model(data.x, data.edge_index[:,train_edge_mask])
-    accs, baccs, f1s = [], [], []
+    accs, baccs, f1s, aucs = [], [], [], []
     for mask in [data_train_mask, data_val_mask, data_test_mask]:
         if args.method == 'imgagn':
             mask = mask[torch.logical_not(data_gen_mask)]
@@ -232,10 +232,12 @@ def test():
         acc = pred.eq(data.y[mask]).sum().item() / mask.sum().item()
         bacc = balanced_accuracy_score(y_true, y_pred)
         f1 = f1_score(y_true, y_pred, average='macro')
+        auc = roc_auc_score(y_true, F.softmax(logits[mask], dim=1), average='macro', multi_class='ovr')
         accs.append(acc)
         baccs.append(bacc)
         f1s.append(f1)
-    return accs, baccs, f1s
+        aucs.append(auc)
+    return accs, baccs, f1s, aucs
 
 args = parse_args()
 
@@ -505,7 +507,7 @@ if args.method == 'imgagn':
         train_gen()
         for epoch in tqdm.tqdm(range(args.epoch // 10)):
             train()
-            accs, baccs, f1s = test()
+            accs, baccs, f1s, aucs = test()
             train_acc, val_acc, tmp_test_acc = accs
             train_f1, val_f1, tmp_test_f1 = f1s
             val_acc_f1 = (val_acc + val_f1) / 2.
@@ -514,10 +516,11 @@ if args.method == 'imgagn':
                 test_acc = accs[2]
                 test_bacc = baccs[2]
                 test_f1 = f1s[2]
+                test_auc = aucs[2]
 else:
     for epoch in tqdm.tqdm(range(args.epoch)):
         train()
-        accs, baccs, f1s = test()
+        accs, baccs, f1s, aucs = test()
         train_acc, val_acc, tmp_test_acc = accs
         train_f1, val_f1, tmp_test_f1 = f1s
         val_acc_f1 = (val_acc + val_f1) / 2.
@@ -526,5 +529,6 @@ else:
             test_acc = accs[2]
             test_bacc = baccs[2]
             test_f1 = f1s[2]
+            test_auc = aucs[2]
 
-print('acc: {:.9f}, bacc: {:.9f}, f1: {:.9f}'.format(test_acc*100, test_bacc*100, test_f1*100))
+print('acc: {:.9f}, bacc: {:.9f}, f1: {:.9f}, auc: {:.9f}'.format(test_acc*100, test_bacc*100, test_f1*100, test_auc*100))

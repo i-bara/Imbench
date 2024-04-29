@@ -7,7 +7,7 @@ from openpyxl import load_workbook
 import statistics
 
 method_list = ['vanilla', 'drgcn', 'smote', 'imgagn', 'ens', 'tam', 'lte4g', 'sann', 'sha', 'renode', 'pastel', 'hyperimba']
-score_list = ['acc', 'bacc', 'f1']
+score_list = ['acc', 'bacc', 'f1', 'auc']
 dataset_list = ['Cora_100', 'Cora_20', 'CiteSeer_100', 'CiteSeer_20', 'PubMed_100', 'PubMed_20', 'chameleon_100', 'chameleon_20', 'squirrel_100', 'squirrel_20', 'Actor_100', 'Actor_20', 'Wisconsin_100', 'Wisconsin_20', 'Amazon-Photo', 'Amazon-Computers', 'Coauthor-CS']
 seed_list = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
 
@@ -47,6 +47,8 @@ def get_score_offset(score):
         return 1
     elif score == 'f1':
         return 2
+    elif score == 'auc':
+        return 3
     else:
         raise NotImplementedError()
 
@@ -125,7 +127,7 @@ for method in method_list:
         benchmarks[(method, dataset)] = list()
 
 for record in records:
-    benchmarks[(record['method'], record['dataset'])].append((record['acc'], record['bacc'], record['f1']))
+    benchmarks[(record['method'], record['dataset'])].append((record['acc'], record['bacc'], record['f1'], record['auc']))
 
 template_filename = 'Imbalance Benchmark Template.xlsx'
 filename = 'Imbalance Benchmark.xlsx'
@@ -140,10 +142,11 @@ for method in method_list:
             scores = dict()
             for score in score_list:
                 scores[score] = list()
-            for acc, bacc, f1 in benchmarks[(method, dataset)]:
+            for acc, bacc, f1, auc in benchmarks[(method, dataset)]:
                 scores['acc'].append(acc)
                 scores['bacc'].append(bacc)
                 scores['f1'].append(f1)
+                scores['auc'].append(auc)
             for score in score_list:
                 mean_score = statistics.mean(scores[score])
                 stdev_score = statistics.stdev(scores[score])

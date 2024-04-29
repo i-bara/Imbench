@@ -93,9 +93,9 @@ def experiment(method, dataset, seed, options, records, records_file, cache_file
 
         with open(cache_file) as f:
             info = f.read()
-            match = re.match('[\\S\\s]*acc: ([\\d\\.]*), bacc: ([\\d\\.]*), f1: ([\\d\\.]*)\n', info)
+            match = re.match('[\\S\\s]*acc: ([\\d\\.]*), bacc: ([\\d\\.]*), f1: ([\\d\\.]*), auc: ([\\d\\.]*)\n', info)
             if match is not None:
-                acc, bacc, f1 = tuple(map(lambda x: float(x), match.groups()))
+                acc, bacc, f1, auc = tuple(map(lambda x: float(x), match.groups()))
                 record = dict()
                 record['begin_datetime'] = begin_datetime.__str__()
                 record['end_datetime'] = end_datetime.__str__()
@@ -106,6 +106,7 @@ def experiment(method, dataset, seed, options, records, records_file, cache_file
                 record['acc'] = acc
                 record['bacc'] = bacc
                 record['f1'] = f1
+                record['auc'] = auc
                 print(record)
                 records.append(record)
 
