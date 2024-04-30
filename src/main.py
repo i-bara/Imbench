@@ -408,6 +408,7 @@ if args.method == 'smote':
     data_val_mask = torch.cat((data_val_mask, torch.zeros(data.x.shape[0] - data_val_mask.shape[0], dtype=torch.bool, device=data_val_mask.device)), 0)
     data_test_mask = torch.cat((data_test_mask, torch.zeros(data.x.shape[0] - data_test_mask.shape[0], dtype=torch.bool, device=data_test_mask.device)), 0)
     train_edge_mask = torch.cat((train_edge_mask, torch.ones(data.edge_index.shape[1] - train_edge_mask.shape[0], dtype=torch.bool, device=train_edge_mask.device)), 0)
+    stat(data=data, data_train_mask=data_train_mask, data_val_mask=data_val_mask, data_test_mask=data_test_mask)
 
 
 

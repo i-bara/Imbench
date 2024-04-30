@@ -10,6 +10,7 @@ import random
 from torch_geometric.utils.convert import from_scipy_sparse_matrix, to_scipy_sparse_matrix
 from torch_sparse import SparseTensor
 from copy import deepcopy
+from data_utils import sort
 
 @torch.no_grad()
 def sampling_idx_individual_dst(class_num_list, idx_info, device):
@@ -306,6 +307,8 @@ def get_dist_kl_ens(prev_out, sampling_src_idx, sampling_dst_idx):
     return dist_kl
 
 def src_smote(data, data_train_mask, portion=1.0, im_class_num=3):
+    _, indices, _ = sort(data, data_train_mask)
+
     features = data.x
     labels = data.y
 
@@ -333,7 +336,7 @@ def src_smote(data, data_train_mask, portion=1.0, im_class_num=3):
         # print(idx_train.shape)
         # print((labels==(c_largest-i)).shape)
         # print((labels==(c_largest-i))[idx_train].shape)
-        new_chosen = idx_train[(labels==(c_largest-i))[idx_train]]
+        new_chosen = idx_train[(labels==(indices[c_largest-i]))[idx_train]]
         # print('chosen: %d' % new_chosen.shape)
         if portion == 0:#refers to even distribution
             c_portion = int(avg_number/new_chosen.shape[0])
