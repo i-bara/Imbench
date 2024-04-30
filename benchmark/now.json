@@ -1,5 +1,5 @@
 {
-    "methods": ["vanilla"],
-    "datasets": "l1",
+    "methods": ["smote"],
+    "datasets": "PubMed_100",
     "seeds": [100]
 }
