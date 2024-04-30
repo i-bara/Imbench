@@ -8,7 +8,17 @@ import statistics
 
 method_list = ['vanilla', 'drgcn', 'smote', 'imgagn', 'ens', 'tam', 'lte4g', 'topoauc', 'sann', 'sha', 'renode', 'pastel', 'hyperimba']
 score_list = ['acc', 'bacc', 'f1', 'auc']
-dataset_list = ['Cora_100', 'Cora_20', 'CiteSeer_100', 'CiteSeer_20', 'PubMed_100', 'PubMed_20', 'chameleon_100', 'chameleon_20', 'squirrel_100', 'squirrel_20', 'Actor_100', 'Actor_20', 'Wisconsin_100', 'Wisconsin_20', 'Amazon-Photo', 'Amazon-Computers', 'Coauthor-CS']
+dataset_list = ['Cora_100', 'Cora_20', 'Cora_1', 
+                          'CiteSeer_100', 'CiteSeer_20', 'CiteSeer_1', 
+                          'PubMed_100', 'PubMed_20', 'PubMed_1', 
+                          'chameleon_100', 'chameleon_20', 'chameleon_1', 
+                          'squirrel_100', 'squirrel_20', 'squirrel_1', 
+                          'Actor_100', 'Actor_20', 'Actor_1', 
+                          'Wisconsin_100', 'Wisconsin_20', 'Wisconsin_1', 
+                          'Amazon-Photo_100', 'Amazon-Photo_20', 'Amazon-Photo_1', 
+                          'Amazon-Computers_100', 'Amazon-Computers_20', 'Amazon-Computers_1', 
+                          'ogbn-arxiv_100', 'ogbn-arxiv_20', 'ogbn-arxiv_1', 
+                          'Amazon-Photo', 'Amazon-Computers', 'Coauthor-CS', 'ogbn-arxiv']
 seed_list = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
 
 def get_method_offset(method):
