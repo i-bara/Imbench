@@ -232,7 +232,7 @@ def test():
         acc = pred.eq(data.y[mask]).sum().item() / mask.sum().item()
         bacc = balanced_accuracy_score(y_true, y_pred)
         f1 = f1_score(y_true, y_pred, average='macro')
-        auc = roc_auc_score(y_true, F.softmax(logits[mask], dim=1), average='macro', multi_class='ovr')
+        auc = roc_auc_score(y_true, F.softmax(logits[mask], dim=1).cpu().numpy(), average='macro', multi_class='ovr')
         accs.append(acc)
         baccs.append(bacc)
         f1s.append(f1)
