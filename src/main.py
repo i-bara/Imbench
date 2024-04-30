@@ -403,7 +403,7 @@ for i in range(n_cls):
 
 
 if args.method == 'smote':
-    data = src_smote(data)
+    data = src_smote(data, data_train_mask)
     data_train_mask = torch.cat((data_train_mask, torch.ones(data.x.shape[0] - data_train_mask.shape[0], dtype=torch.bool, device=data_train_mask.device)), 0)
     data_val_mask = torch.cat((data_val_mask, torch.zeros(data.x.shape[0] - data_val_mask.shape[0], dtype=torch.bool, device=data_val_mask.device)), 0)
     data_test_mask = torch.cat((data_test_mask, torch.zeros(data.x.shape[0] - data_test_mask.shape[0], dtype=torch.bool, device=data_test_mask.device)), 0)

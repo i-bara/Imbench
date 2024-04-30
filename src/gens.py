@@ -305,7 +305,7 @@ def get_dist_kl_ens(prev_out, sampling_src_idx, sampling_dst_idx):
     dist_kl[dist_kl<0] = 0
     return dist_kl
 
-def src_smote(data, portion=1.0, im_class_num=3):
+def src_smote(data, data_train_mask, portion=1.0, im_class_num=3):
     features = data.x
     labels = data.y
 
@@ -313,10 +313,10 @@ def src_smote(data, portion=1.0, im_class_num=3):
                    sparse_sizes=(data.x.shape[0], data.x.shape[0]))
     # adj = to_scipy_sparse_matrix(data.edge_index)  Doesn't work because of scipy instead of tensor
 
-    idx_train = torch.tensor(range(data.train_mask.shape[0]), device=data.train_mask.device)[data.train_mask]
+    idx_train = torch.tensor(range(data_train_mask.shape[0]), device=data_train_mask.device)[data_train_mask]
 
-    # print(data.train_mask.shape)
-    # print(data.train_mask[range(data.train_mask.shape[0])].shape)
+    # print(data_train_mask.shape)
+    # print(data_train_mask[range(data_train_mask.shape[0])].shape)
 
     c_largest = labels.max().item()
     adj_back = adj.to_dense()
@@ -441,15 +441,16 @@ def src_smote(data, portion=1.0, im_class_num=3):
     # data.edge_index = adj.nonzero().t().contiguous()
 
     # print(data.x.shape)
-    # data.train_mask = torch.tensor([False for _ in range(data.x.shape[0])])
-    # print(data.train_mask.shape)
+    # data_train_mask = torch.tensor([False for _ in range(data.x.shape[0])])
+    # print(data_train_mask.shape)
     # print(idx_train)
     # print(idx_train.shape)
-    # data.train_mask[idx_train] = torch.tensor([True for _ in range(idx_train.shape[0])])
+    # data_train_mask[idx_train] = torch.tensor([True for _ in range(idx_train.shape[0])])
     
-    data.train_mask = torch.cat((data.train_mask, torch.tensor([True for _ in range(data.x.shape[0] - data.train_mask.shape[0])], device=data.train_mask.device)), 0)
-    data.val_mask = torch.cat((data.val_mask, torch.tensor([False for _ in range(data.x.shape[0] - data.val_mask.shape[0])], device=data.val_mask.device)), 0)
-    data.test_mask = torch.cat((data.test_mask, torch.tensor([False for _ in range(data.x.shape[0] - data.test_mask.shape[0])], device=data.test_mask.device)), 0)
+    # 4.30: Delete for duplication in main.py
+    # data_train_mask = torch.cat((data_train_mask, torch.tensor([True for _ in range(data.x.shape[0] - data_train_mask.shape[0])], device=data_train_mask.device)), 0)
+    # data_val_mask = torch.cat((data_val_mask, torch.tensor([False for _ in range(data.x.shape[0] - data_val_mask.shape[0])], device=data_val_mask.device)), 0)
+    # data_test_mask = torch.cat((data_test_mask, torch.tensor([False for _ in range(data.x.shape[0] - data_test_mask.shape[0])], device=data_test_mask.device)), 0)
 
     return data
 
