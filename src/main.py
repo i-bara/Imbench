@@ -448,7 +448,8 @@ def neighbor(data, train_edge_mask):
     return neighbor_dist_list
 
 
-neighbor_dist_list = neighbor(data=data, train_edge_mask=train_edge_mask)
+if args.method in ['ens', 'tam', 'sha']:
+    neighbor_dist_list = neighbor(data=data, train_edge_mask=train_edge_mask)
 
 if args.net == 'GCN':
     model = create_gcn(nfeat=dataset.num_features, nhid=args.feat_dim, nclass=n_cls, dropout=args.dropout, nlayer=args.n_layer, has_discriminator=args.method == 'imgagn')
