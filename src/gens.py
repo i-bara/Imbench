@@ -282,8 +282,14 @@ def sampling_node_source(class_num_list, prev_out_local, idx_info_local, train_i
         src_idx_all.append(src_idx)
         dst_idx_all.append(dst_idx)
     
-    src_idx_all = torch.cat(src_idx_all)
-    dst_idx_all = torch.cat(dst_idx_all)
+    if len(src_idx_all) == 0:
+        src_idx_all = torch.zeros(0, dtype=torch.int64, device=train_idx.device)
+    else:
+        src_idx_all = torch.cat(src_idx_all)
+    if len(dst_idx_all) == 0:
+        dst_idx_all = torch.zeros(0, dtype=torch.int64, device=train_idx.device)
+    else:
+        dst_idx_all = torch.cat(dst_idx_all)
     
     return src_idx_all, dst_idx_all
 
