@@ -28,7 +28,10 @@ def sampling_idx_individual_dst(class_num_list, idx_info, device):
     prob = torch.log(new_class_num_list.float())/ new_class_num_list.float()
     prob = prob.repeat_interleave(new_class_num_list.long())
     temp_idx_info = torch.cat(idx_info)
-    dst_idx = torch.multinomial(prob, sampling_src_idx.shape[0], True)
+    if sampling_src_idx.shape[0] == 0:
+        dst_idx = torch.zeros(0, dtype=torch.int64, device=prob.device)
+    else:
+        dst_idx = torch.multinomial(prob, sampling_src_idx.shape[0], True)
 
     temp_idx_info = temp_idx_info.to(dst_idx.device) # 4.2: Fixed bug: do not in the same device
 
@@ -113,18 +116,20 @@ def duplicate_neighbor(total_node, edge_index, sampling_src_idx):
     row_mask = node_mask[row] 
     edge_mask = col[row_mask] 
     b_idx = torch.arange(len(unique_src)).to(device).repeat_interleave(degree[unique_src])
-    edge_dense, _ = to_dense_batch(edge_mask, b_idx, fill_value=-1)
-    if len(temp[temp!=0]) != edge_dense.shape[0]:
-        cut_num =len(temp[temp!=0]) - edge_dense.shape[0]
-        cut_temp = temp[temp!=0][:-cut_num]
+    if len(unique_src) != 0:
+        edge_dense, _ = to_dense_batch(edge_mask, b_idx, fill_value=-1)
+        if len(temp[temp!=0]) != edge_dense.shape[0]:
+            cut_num =len(temp[temp!=0]) - edge_dense.shape[0]
+            cut_temp = temp[temp!=0][:-cut_num]
+        else:
+            cut_temp = temp[temp!=0]
+        edge_dense  = edge_dense.repeat_interleave(cut_temp, dim=0)
+        new_col = edge_dense[edge_dense!= -1]
+        inv_edge_index = torch.stack([new_col, new_row], dim=0)
+        new_edge_index = torch.cat([edge_index, inv_edge_index], dim=1)
+        return new_edge_index
     else:
-        cut_temp = temp[temp!=0]
-    edge_dense  = edge_dense.repeat_interleave(cut_temp, dim=0)
-    new_col = edge_dense[edge_dense!= -1]
-    inv_edge_index = torch.stack([new_col, new_row], dim=0)
-    new_edge_index = torch.cat([edge_index, inv_edge_index], dim=1)
-
-    return new_edge_index
+        return edge_index
 
 @torch.no_grad()
 def neighbor_sampling(total_node, edge_index, sampling_src_idx,
@@ -407,8 +412,10 @@ def src_smote(data, data_train_mask, portion=1.0, im_class_num=3):
     # print(chosen.shape)
 
     #ipdb.set_trace()
-    features_append = deepcopy(new_features)
-    labels_append = deepcopy(labels[chosen])
+    features_append = new_features.clone().detach()
+    labels_append = labels[chosen].clone().detach()  # 4.30: deepcopy would cause Segmentation fault (core dumped) with PubMed
+    # features_append = deepcopy(new_features)
+    # labels_append = deepcopy(labels[chosen])
     idx_new = np.arange(adj_back.shape[0], adj_back.shape[0]+add_num)
     idx_train_append = idx_train.new(idx_new)
 
