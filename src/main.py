@@ -386,7 +386,13 @@ elif args.dataset in ['Coauthor-CS', 'Amazon-Computers', 'Amazon-Photo', 'ogbn-a
     if args.dataset == 'ogbn-arxiv':
         data.y = data.y[:, 0]
 
-    data_train_mask, data_val_mask, data_test_mask, class_num_list, idx_info = step(data=data, imb_ratio=args.imb_ratio)
+    if args.imb_ratio != 0:
+        data_train_mask, data_val_mask, data_test_mask = get_longtail_split(data, imb_ratio=args.imb_ratio, train_ratio=0.1, val_ratio=0.1)
+
+        idx_info = [torch.arange(data.y.shape[0], device=data.y.device)[(data.y == i) & data_train_mask] for i in range(n_cls)]
+        class_num_list = [idx_info[i].shape[0] for i in range(n_cls)]
+    else:
+        data_train_mask, data_val_mask, data_test_mask, class_num_list, idx_info = step(data=data, imb_ratio=args.imb_ratio)
 
     debug(f'feature size: {data.x.shape[1]}')
     debug(f'number of edges: {data.edge_index.shape[1]}')
