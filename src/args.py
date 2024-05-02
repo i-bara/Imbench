@@ -4,7 +4,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     # Method
-    parser.add_argument('--method', type=str, choices=['vanilla', 'smote', 'imgagn', 'ens', 'tam', 'sha'], default='vanilla', help='the method used to train')
+    parser.add_argument('--method', type=str, choices=['vanilla', 'drgcn', 'smote', 'imgagn', 'ens', 'tam', 'sha'], default='vanilla', help='the method used to train')
 
     # Device
     parser.add_argument('--device', type=str, default='cuda:0', help='device')
