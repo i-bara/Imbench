@@ -74,7 +74,7 @@ def config_args(method, dataset, seed):
     return method_config + ' ' + dataset_config + ' --seed ' + seed.__str__()
 
 
-def experiment(method, dataset, seed, options, records, records_file, cache_file):
+def experiment(method, dataset, seed, options, records, records_file, cache_file, output_path):
     done = False
     for record in records:
         if record['method'] == method and record['dataset'] == dataset and record['seed'] == seed:
@@ -92,7 +92,10 @@ def experiment(method, dataset, seed, options, records, records_file, cache_file
         else:
             output = ' > '
 
-        command = "python src/main.py " + config_args(method=method, dataset=dataset, seed=seed) + " " + options + options_more + output + cache_file
+        net = 'GCN'
+        output_file =  os.path.join(output_path, f'{method}-{dataset}-{seed}-{net}.pt')
+
+        command = f"python src/main.py --output {output_file} " + config_args(method=method, dataset=dataset, seed=seed) + " " + options + options_more + output + cache_file
 
         print('\n')
         print(command)
@@ -143,8 +146,11 @@ def benchmark(name, methods, datasets, seeds):
         os.system('mkdir records')
     if not os.path.isdir('cache'):
         os.system('mkdir cache')
+    if not os.path.isdir(f'records/{name}'):
+        os.system(f'mkdir records/{name}')
     records_file = 'records/' + name + suffix + '.json'
     cache_file = 'cache/' + name + suffix + '.txt'
+    output_path = f'records/{name}'
 
     if os.path.exists(records_file):
         with open(records_file) as f:
@@ -167,7 +173,7 @@ def benchmark(name, methods, datasets, seeds):
         for dataset in datasets:
             for seed in seeds:
                 experiment(method=method, dataset=dataset, seed=seed, options='', 
-                           records=records, records_file=records_file, cache_file=cache_file)
+                           records=records, records_file=records_file, cache_file=cache_file, output_path=output_path)
 
 
 def bayes(name, methods, datasets, seeds, options, iters):

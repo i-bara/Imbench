@@ -6,6 +6,8 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+from baselines import lte4g
+
 from args import parse_args
 from data_utils import get_dataset, get_idx_info, make_longtailed_data_remove, get_step_split, lt, step, get_longtail_split
 from gens import sampling_node_source, neighbor_sampling, neighbor_sampling_ens, duplicate_neighbor, saliency_mixup, saliency_mixup_ens, sampling_idx_individual_dst, MeanAggregation_ens, src_smote, src_imgagn
@@ -241,6 +243,10 @@ def test():
     return accs, baccs, f1s, aucs
 
 args = parse_args()
+
+if args.method == 'lte4g':
+    lte4g.lte4g(args).run()
+    exit()
 
 
 def debug(*args_):

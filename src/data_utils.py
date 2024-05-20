@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import random
 from torch_scatter import scatter_add
 from ogb.nodeproppred import PygNodePropPredDataset
 
@@ -47,6 +48,23 @@ def get_idx_info(label, n_cls, train_mask):
         cls_indices = index_list[((label == i) & train_mask)]
         idx_info.append(cls_indices)
     return idx_info
+
+
+def sort_(class_num_list):
+    n_cls = len(class_num_list)
+
+    class_num_list_tensor = torch.tensor(class_num_list)
+    class_num_list_sorted_tensor, indices = torch.sort(class_num_list_tensor, descending=True)
+    class_num_list_sorted = class_num_list_sorted_tensor.tolist()
+    inv_indices = torch.zeros(n_cls, dtype=indices.dtype, device=indices.device)
+    for i in range(n_cls):
+        inv_indices[indices[i].item()] = i
+
+    # assert class_num_list_sorted == class_num_list[indices]
+    # assert class_num_list == class_num_list_sorted[inv_indices]
+    assert torch.equal(class_num_list_sorted_tensor, class_num_list_tensor[indices])
+    assert torch.equal(class_num_list_tensor, class_num_list_sorted_tensor[inv_indices])
+    return class_num_list_tensor, indices, inv_indices
 
 
 def sort(data, data_mask=None):
@@ -114,27 +132,31 @@ def split_same(class_num_list, indices, inv_indices, imb_ratio, n_cls, n):
     return class_num_list_lt 
 
 
-def choose(class_num_list, class_num_list_lt, indices, data, data_mask):
+def choose(class_num_list, class_num_list_lt, indices, data, data_mask, choose_deg='smallest'):
     node_mask = data_mask.clone().detach()
     for i in indices:
-        idx = torch.arange(data.y.shape[0], dtype=torch.int64, device=data.y.device)[(data.y == i)]
-        remove = class_num_list[i] - class_num_list_lt[i]
-        for r in range(10):
-            # Remove connection with removed nodes
-            row, col = data.edge_index[0], data.edge_index[1]
-            row_mask = node_mask[row]
-            col_mask = node_mask[col]
-            edge_mask = row_mask & col_mask
+        if choose_deg is not None:
+            idx = torch.arange(data.y.shape[0], dtype=torch.int64, device=data.y.device)[(data.y == i)]
+            remove = class_num_list[i] - class_num_list_lt[i]
+            for r in range(10):
+                # Remove connection with removed nodes
+                row, col = data.edge_index[0], data.edge_index[1]
+                row_mask = node_mask[row]
+                col_mask = node_mask[col]
+                edge_mask = row_mask & col_mask
 
-            # Compute degree
-            degree = scatter_add(torch.ones_like(col[edge_mask]), col[edge_mask], dim_size=data.y.shape[0]).to(data.y.device)
-            degree = degree[idx]
+                # Compute degree
+                degree = scatter_add(torch.ones_like(col[edge_mask]), col[edge_mask], dim_size=data.y.shape[0]).to(data.y.device)
+                degree = degree[idx]
 
-            # Remove nodes with low degree first (number increases as round increases)
-            # Accumulation does not be problem since
-            _, remove_idx = torch.topk(degree, ((r + 1) * remove) // 10, largest=False)
-            remove_idx = idx[remove_idx]
-            node_mask[remove_idx] = False
+                # Remove nodes with low degree first (number increases as round increases)
+                # Accumulation does not be problem since
+                _, remove_idx = torch.topk(degree, ((r + 1) * remove) // 10, largest=choose_deg == 'largest')  # GrphaSHA uses largest=True but we have forbidden here
+                remove_idx = idx[remove_idx]
+                node_mask[remove_idx] = False
+        else:
+            idx = torch.arange(data.y.shape[0], dtype=torch.int64, device=data.y.device)[node_mask & (data.y == i)]
+            node_mask[idx[min(len(idx), class_num_list_lt[i]):]] = False
     
     assert torch.equal(node_mask & data_mask, node_mask)
 
@@ -311,7 +333,7 @@ def get_longtail_split(data, imb_ratio, train_ratio, val_ratio):
 
     data_mask = torch.ones(data.y.shape[0], dtype=torch.bool, device=data.y.device)
 
-    data_train_mask = choose(class_num_list, class_num_list_train, indices, data, data_mask)
+    data_train_mask = choose(class_num_list, class_num_list_train, indices, data, data_mask, choose_deg=None)
 
     # val
     class_num_list_val = split_same(class_num_list=class_num_list, indices=indices, inv_indices=inv_indices, \
@@ -319,7 +341,7 @@ def get_longtail_split(data, imb_ratio, train_ratio, val_ratio):
 
     data_mask = data_mask & torch.logical_not(data_train_mask)
 
-    data_val_mask = choose(class_num_list, class_num_list_val, indices, data, data_mask)
+    data_val_mask = choose(class_num_list, class_num_list_val, indices, data, data_mask, choose_deg=None)
 
     # test
     data_test_mask = data_mask & torch.logical_not(data_val_mask)
@@ -367,3 +389,159 @@ def step(data, imb_ratio):
     idx_info = [torch.tensor(item) for item in train_node]
 
     return data_train_mask, data_val_mask, data_test_mask, class_num_list, idx_info
+
+
+def separator_ht(dist, head_ratio=0.4): # Head / Tail separator
+    class_num_list_tensor, indices, inv_indices = sort_(class_num_list=dist)
+
+    # head = head_ratio
+    # tail = 1 - head_ratio
+    head_idx = int(len(dist) * head_ratio)
+    ht_dict = {}
+
+    if head_idx == 0:
+        ht_dict['H'] = indices[torch.arange(1)]
+        ht_dict['T'] = indices[torch.arange(1, dist)]
+        return ht_dict
+
+    else:
+        ht_dict['H'] = indices[torch.arange(head_idx)]
+        ht_dict['T'] = indices[torch.arange(head_idx, len(dist))]
+        return ht_dict
+        # crierion = dist[indices[head_idx]]
+
+        # case1_h = sum(dist >= crierion)
+        # case1_t = sum(dist < crierion)
+
+        # case2_h = sum(dist > crierion)
+        # case2_t = sum(dist <= crierion)
+
+        # gap_case1 = abs(case1_h/case1_t - head/tail)
+        # gap_case2 = abs(case2_h/case2_t - head/tail)
+
+        # if gap_case1 < gap_case2:
+        #     idx = sum(dist >= crierion)
+        #     ht_dict['H'] = indices[torch.arange(idx)]
+        #     ht_dict['T'] = indices[torch.arange(idx, len(dist))]
+
+        # elif gap_case1 > gap_case2:
+        #     idx = sum(dist > crierion)
+        #     ht_dict['H'] = indices[torch.arange(idx)]
+        #     ht_dict['T'] = indices[torch.arange(idx, len(dist))]
+
+        # else:
+        #     rand = random.choice([1, 2])
+        #     if rand == 1:
+        #         idx = sum(dist >= crierion)
+        #         ht_dict['H'] = indices[torch.arange(idx)]
+        #         ht_dict['T'] = indices[torch.arange(idx, len(dist))]
+        #     else:
+        #         idx = sum(dist > crierion)
+        #         ht_dict['H'] = indices[torch.arange(idx)]
+        #         ht_dict['T'] = indices[torch.arange(idx, len(dist))]
+
+        # return ht_dict
+
+
+def degree(data):
+    return torch.tensor([(data.edge_index == i).sum().item() for i in range(data.y.shape[0])], dtype=torch.float32, device=data.y.device)
+
+
+def separate_class_degree(adj, idx_train_set_class, below=None):
+    idx_train_set = {}
+    idx_train_set['HH'] = []
+    idx_train_set['HT'] = []
+    idx_train_set['TH'] = []
+    idx_train_set['TT'] = []
+
+    adj_dense = adj.to_dense()
+    adj_dense[adj_dense != 0] = 1
+    degrees = np.array(list(map(int, torch.sum(adj_dense, dim=0))))
+
+    for sep in ['H', 'T']:
+        if len(idx_train_set_class[sep]) == 0:
+            continue
+
+        elif len(idx_train_set_class[sep]) == 1:
+            idx = idx_train_set_class[sep]
+            if sep == 'H':
+                rand = random.choice(['HH', 'HT'])
+                idx_train_set[rand].append(int(idx))
+            elif sep == 'T':
+                rand = random.choice(['TH', 'TT'])
+                idx_train_set[rand].append(int(idx))
+
+        else:
+            degrees_idx_train = degrees[idx_train_set_class[sep]]
+            gap_head = abs(degrees_idx_train - (below+1))
+            gap_tail = abs(degrees_idx_train - below)
+
+            if sep == 'H':
+                idx_train_set['HH'] = list(map(int,idx_train_set_class[sep][gap_head < gap_tail]))
+                idx_train_set['HT'] = list(map(int,idx_train_set_class[sep][gap_tail < gap_head]))
+
+                if sum(gap_head == gap_tail) > 0:
+                    for idx in idx_train_set_class[sep][gap_head == gap_tail]:
+                        rand = random.choice(['HH', 'HT'])
+                        idx_train_set[rand].append(int(idx))
+
+            elif sep == 'T':
+                idx_train_set['TH'] = list(map(int,idx_train_set_class[sep][gap_head < gap_tail]))
+                idx_train_set['TT'] = list(map(int,idx_train_set_class[sep][gap_tail < gap_head]))
+
+                if sum(gap_head == gap_tail) > 0:
+                    for idx in idx_train_set_class[sep][gap_head == gap_tail]:
+                        rand = random.choice(['TH', 'TT'])
+                        idx_train_set[rand].append(int(idx))
+
+    for idx in ['HH', 'HT', 'TH', 'TT']:
+        random.shuffle(idx_train_set[idx])
+        idx_train_set[idx] = torch.LongTensor(idx_train_set[idx])
+
+    return idx_train_set, degrees
+
+
+def adj_mse_loss(adj_rec, adj_tgt):
+    
+    adj_tgt[adj_tgt != 0] = 1
+
+    edge_num = adj_tgt.nonzero().shape[0] #number of non-zero
+    total_num = adj_tgt.shape[0]**2 #possible edge
+
+    neg_weight = edge_num / (total_num-edge_num)
+
+    weight_matrix = adj_rec.new(adj_tgt.shape).fill_(1.0)
+    weight_matrix[adj_tgt==0] = neg_weight
+
+    loss = torch.sum(weight_matrix * (adj_rec - adj_tgt) ** 2) # element-wise
+
+    return loss
+
+
+def adj(x, edge_index):
+    adj = torch.zeros((x.shape[0], x.shape[0]), dtype=torch.float32, device=edge_index.device)
+    for i, j in zip(edge_index[0], edge_index[1]):
+        adj[i, j] = 1.
+    return adj
+
+
+def idx(mask, n_cls):
+    return torch.arange(n_cls, device=mask.device)[mask]
+            
+
+def inv(idx, n_cls):
+    inv_idx = torch.zeros(n_cls, dtype=idx.dtype, device=idx.device)
+    for i in range(n_cls):
+        inv_idx[idx[i].item()] = i
+    return inv_idx
+
+
+def scheduler(epoch, curriculum_ep=500, func='convex'):
+    if func == 'convex':
+        return np.cos((epoch * np.pi) / (curriculum_ep * 2))
+    elif func == 'concave':
+        return np.power(0.99, epoch)
+    elif func == 'linear':
+        return 1 - (epoch / curriculum_ep)
+    elif func == 'composite':
+        return (1/2) * np.cos((epoch*np.pi) / curriculum_ep) + 1/2

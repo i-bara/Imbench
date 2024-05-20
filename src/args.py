@@ -4,13 +4,16 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     # Method
-    parser.add_argument('--method', type=str, choices=['vanilla', 'drgcn', 'smote', 'imgagn', 'ens', 'tam', 'sha'], default='vanilla', help='the method used to train')
+    parser.add_argument('--method', type=str, choices=['vanilla', 'drgcn', 'smote', 'imgagn', 'lte4g', 'ens', 'tam', 'sha'], default='vanilla', help='the method used to train')
 
     # Device
     parser.add_argument('--device', type=str, default='cuda:0', help='device')
 
     # Debug
     parser.add_argument('--debug', action="store_true", help='whether to debug')
+
+    # Storage
+    parser.add_argument('--output', type=str, help='path to store output')
 
     # Seed
     parser.add_argument('--seed', type=int, default=100, help='seed')
