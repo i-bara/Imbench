@@ -30,6 +30,9 @@ all_config['datasets'] = ['Cora_100', 'Cora_20', 'Cora_1',
                           'squirrel_100', 'squirrel_20', 'squirrel_1', 
                           'Actor_100', 'Actor_20', 'Actor_1', 
                           'Wisconsin_100', 'Wisconsin_20', 'Wisconsin_1', 
+                          'Amazon-Photo_100', 'Amazon-Photo_20', 'Amazon-Photo_1', 
+                          'Amazon-Computers_100', 'Amazon-Computers_20', 'Amazon-Computers_1', 
+                          'ogbn-arxiv_100', 'ogbn-arxiv_20', 'ogbn-arxiv_1', 
                           'Amazon-Photo', 'Amazon-Computers', 'Coauthor-CS', 'ogbn-arxiv']
 all_config['seeds'] = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
 

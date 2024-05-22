@@ -1,5 +1,5 @@
 {
-    "methods": ["smote"],
-    "datasets": "PubMed_100",
+    "methods": ["sha"],
+    "datasets": "chameleon_1",
     "seeds": [100]
 }

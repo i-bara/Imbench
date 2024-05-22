@@ -108,14 +108,22 @@ def get_dataset_offset(dataset):
         return (4, 78)
     elif dataset == 'Wisconsin_1':
         return (4, 82)
-    elif dataset == 'Amazon-Photo':
+    elif dataset == 'Amazon-Photo_100':
         return (22, 2)
-    elif dataset == 'Amazon-Computers':
-        return (22, 8)
+    elif dataset == 'Amazon-Photo_20':
+        return (22, 6)
+    elif dataset == 'Amazon-Photo_1':
+        return (22, 10)
+    elif dataset == 'Amazon-Computers_100':
+        return (22, 14)
+    elif dataset == 'Amazon-Computers_20':
+        return (22, 18)
+    elif dataset == 'Amazon-Computers_1':
+        return (22, 22)
     elif dataset == 'Coauthor-CS':
         return (22, 14)
     elif dataset == 'ogbn-arxiv':
-        return (22, 20)
+        return (22, 26)
     else:
         raise NotImplementedError()
     
@@ -124,11 +132,16 @@ records_file_list = [
     # ('Computers', True),
     # ('CS', True),
     ('vanilla', True),
+    ('drgcn', True),
     ('smote', True),
     ('imgagn', True),
     ('ens', True),
     ('tam', True),
     ('sha', True),
+    ('vanilla_smote_a', True),
+    ('imgagn_ens_a', True),
+    ('tam_sha_a', True),
+    ('drgcn_a', True),
     # ('smote', True),
     # ('smote2', True),
     # ('ccp', False),
@@ -137,6 +150,7 @@ records_file_list = [
 records = []
 
 for records_file_item in records_file_list:
+    print(records_file_item)
     if records_file_item[1]:
         records_file = 'records/' + records_file_item[0] + '_gpu.json'
         # records_file = 'records/records_gpu_' + records_file_item[0] + '.json'

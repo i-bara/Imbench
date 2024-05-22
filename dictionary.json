@@ -12,7 +12,16 @@
             "Cora_20", "CiteSeer_20", "PubMed_20", "chameleon_20", "squirrel_20", "Actor_20",
             "Cora_1", "CiteSeer_1", "PubMed_1", "chameleon_1", "squirrel_1", "Actor_1"
         ],
-        "1": ["Cora_1", "CiteSeer_1", "PubMed_1", "chameleon_1", "squirrel_1", "Actor_1", "Amazon-Computers_1", "Amazon-Photo_1"]
+        "1": ["Cora_1", "CiteSeer_1", "PubMed_1", "chameleon_1", "squirrel_1", "Actor_1", "Amazon-Computers_1", "Amazon-Photo_1"],
+        "l_no_PubMed": [
+            "Cora_100", "CiteSeer_100", "chameleon_100", "squirrel_100", "Actor_100",
+            "Cora_20", "CiteSeer_20", "chameleon_20", "squirrel_20", "Actor_20",
+            "Cora_1", "CiteSeer_1", "chameleon_1", "squirrel_1", "Actor_1"
+        ],
+        "Amazon": [
+            "Amazon-Computers_100", "Amazon-Computers_20", "Amazon-Computers_1",
+            "Amazon-Photo_100", "Amazon-Photo_20", "Amazon-Photo_1"
+        ]
     },
     "seeds": {
     }
