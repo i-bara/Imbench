@@ -9,6 +9,10 @@ from sklearn.metrics import balanced_accuracy_score, f1_score, roc_auc_score
 
 
 class Baseline:
+    def parse_args(parser):
+        pass
+
+    
     def debug(self, *args_):
         if self.args.debug:
             print(*args_)

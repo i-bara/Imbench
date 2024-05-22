@@ -6,13 +6,11 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from baselines import lte4g
-
 from args import parse_args
 from data_utils import get_dataset, get_idx_info, make_longtailed_data_remove, get_step_split, lt, step, get_longtail_split
 from gens import sampling_node_source, neighbor_sampling, neighbor_sampling_ens, duplicate_neighbor, saliency_mixup, saliency_mixup_ens, sampling_idx_individual_dst, MeanAggregation_ens, src_smote, src_imgagn
 from nets import create_gcn, create_gat, create_sage, create_generator, create_gan_drgcn
-from utils import CrossEntropy, euclidean_dist, Neighbors
+from utils.utils import CrossEntropy, euclidean_dist, Neighbors
 from tam import adjust_output
 from sklearn.metrics import balanced_accuracy_score, f1_score, roc_auc_score
 from neighbor_dist import get_PPR_adj, get_heat_adj, get_ins_neighbor_dist
@@ -242,10 +240,10 @@ def test():
         aucs.append(auc)
     return accs, baccs, f1s, aucs
 
-args = parse_args()
+args, baseline = parse_args()
 
-if args.method == 'lte4g':
-    lte4g.lte4g(args).run()
+if baseline is not None:
+    baseline(args).run()
     exit()
 
 
