@@ -6,6 +6,7 @@ from baselines.renode import renode
 from baselines.topoauc import topoauc
 from baselines.hyperimba import hyperimba
 from baselines.pastel import pastel
+from baselines.mixup import mixup
 
 
 baseline_dict = {
@@ -15,6 +16,7 @@ baseline_dict = {
     'topoauc': topoauc,
     'hyperimba': hyperimba,
     'pastel': pastel,
+    'mixup': mixup,
 }
 
 
@@ -22,7 +24,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     # Method
-    parser.add_argument('--method', type=str, choices=['vanilla', 'drgcn', 'smote', 'imgagn', 'lte4g', 'ens', 'tam', 'topoauc', 'sha', 'renode', 'pastel', 'hyperimba'], default='vanilla', help='the method used to train')
+    parser.add_argument('--method', type=str, choices=['vanilla', 'drgcn', 'smote', 'imgagn', 'lte4g', 'mixup', 'ens', 'tam', 'topoauc', 'sha', 'renode', 'pastel', 'hyperimba'], default='vanilla', help='the method used to train')
 
     # Device
     parser.add_argument('--device', type=str, default='cuda:0', help='device')

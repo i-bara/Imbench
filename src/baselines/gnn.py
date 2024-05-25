@@ -12,13 +12,14 @@ class GNN(nn.Module):
     ''' 
     A GNN backbone, such as GCN, GAT and SAGE.
     '''
-    def __init__(self, Conv, n_feat, n_hid, n_cls, dropout, n_layer, **kwargs):
+    def __init__(self, Conv, n_feat, n_hid, n_cls, dropout, n_layer, encoder=False, **kwargs):
         super(GNN, self).__init__()
         self.convs = nn.ModuleList([Conv(n_feat if layer == 0 else n_hid, 
                                          n_cls if layer + 1 == n_layer else n_hid, **kwargs) 
                                          for layer in range(n_layer)])
 
         self.dropout = dropout
+        self.encoder = encoder
         # self.x_dropout = x_dropout
         # self.edge_index_dropout = edge_index_dropout
 
@@ -30,13 +31,19 @@ class GNN(nn.Module):
         # x = F.dropout(x, p=self.x_dropout, training=self.training)
         # edge_index = F.dropout(edge_index, p=self.edge_index_dropout, training=self.training)
 
-        for conv in self.convs[:-1]:
-            x = conv(x=x, edge_index=edge_index, edge_weight=edge_weight, **kwargs)  # is_add_self_loops=self.is_add_self_loops, 
-            x = F.relu(x)
-            x = F.dropout(x, p=self.dropout, training=self.training)
-            
-        x = self.convs[-1](x=x, edge_index=edge_index, edge_weight=edge_weight, **kwargs)
-        # , edge_index
+        if self.encoder:
+            for conv in self.convs:
+                x = conv(x=x, edge_index=edge_index, edge_weight=edge_weight, **kwargs)  # is_add_self_loops=self.is_add_self_loops, 
+                x = F.relu(x)
+                x = F.dropout(x, p=self.dropout, training=self.training)
+        else:
+            for conv in self.convs[:-1]:
+                x = conv(x=x, edge_index=edge_index, edge_weight=edge_weight, **kwargs)  # is_add_self_loops=self.is_add_self_loops, 
+                x = F.relu(x)
+                x = F.dropout(x, p=self.dropout, training=self.training)
+                
+            x = self.convs[-1](x=x, edge_index=edge_index, edge_weight=edge_weight, **kwargs)
+            # , edge_index
         return x
 
 
@@ -58,6 +65,9 @@ class GnnModel(nn.Module):
                             #   x_dropout=args.x_dropout, 
                             #   edge_index_dropout=args.edge_index_dropout, 
                               n_layer=args.n_layer, **self.gnn_kwargs)
+        
+        self.reg_params = self.classifier.reg_params
+        self.non_reg_params = self.classifier.non_reg_params
 
 
     def config_gnn(self):
@@ -85,16 +95,9 @@ class GnnModel(nn.Module):
 
     def criterion(self, output, y, mask, weight):
         return F.cross_entropy(output[mask], y[mask], weight=weight)
+    
 
-
-    def forward(self, x, edge_index, y=None, mask=None, weight=None, logit=False, phase=None, reg=None, **kwargs):
-        if mask is None:
-            mask = self.baseline.mask()
-        
-        output = self.classifier(x=x, edge_index=edge_index, **kwargs)
-        if logit:
-            return output
-        
+    def _loss(self, output, y, mask, weight, phase, reg):
         if phase is None:
             criterions = self.criterion_default
         else:
@@ -120,8 +123,46 @@ class GnnModel(nn.Module):
                 loss = criterion(**reg)
             else:
                 loss = criterion(output=output, y=y, mask=mask, weight=weight)
-        
+
         return loss
+    
+
+    def _output(self, x, edge_index, phase, **kwargs):
+        return self.classifier(x=x, edge_index=edge_index, **kwargs)
+
+
+    def forward(self, x, edge_index, y=None, mask=None, weight=None, logit=False, phase=None, reg=None, **kwargs):
+        if mask is None:
+            mask = self.baseline.mask()
+
+        output = self._output(x=x, edge_index=edge_index, phase=phase, **kwargs)
+        if logit:
+            return output
+        
+        return self._loss(output=output, y=y, mask=mask, weight=weight, phase=phase, reg=reg)
+
+
+class GnnModelWithEncoder(GnnModel):
+    def __init__(self, args, baseline):
+        super().__init__(args, baseline)
+        self.encoder = GNN(Conv=self.conv_dict[args.net], 
+                              n_feat=baseline.n_feat, n_hid=args.feat_dim, n_cls=args.feat_dim, 
+                              dropout=args.dropout, 
+                              n_layer=1, **self.gnn_kwargs)
+        self.classifier = GNN(Conv=self.conv_dict[args.net], 
+                              n_feat=args.feat_dim, n_hid=args.feat_dim, n_cls=baseline.n_cls, 
+                              dropout=args.dropout, 
+                              n_layer=args.n_layer - 1, **self.gnn_kwargs)
+        
+        self.reg_params = list(self.classifier.reg_params) + list(self.encoder.reg_params)
+        self.non_reg_params = list(self.classifier.non_reg_params) + list(self.encoder.non_reg_params)
+
+
+    def _output(self, x, edge_index, phase, **kwargs):
+        if phase == 'embed':
+            return self.encoder(x=x, edge_index=edge_index, **kwargs)
+        else:
+            return self.classifier(x=x, edge_index=edge_index, **kwargs)
 
 
 class gnn(Baseline):
@@ -134,8 +175,8 @@ class gnn(Baseline):
     def use(self, Model, *args):
         self.model = Model(args=self.args, baseline=self).to(self.device)
         self.models = [self.model]
-        params_dicts = [dict(params=self.model.classifier.reg_params, weight_decay=self.args.weight_decay), 
-                        dict(params=self.model.classifier.non_reg_params, weight_decay=0),]
+        params_dicts = [dict(params=self.model.reg_params, weight_decay=self.args.weight_decay), 
+                        dict(params=self.model.non_reg_params, weight_decay=0),]
         for arg in args:
             params_dicts.append(dict(params=arg.parameters(), weight_decay=self.args.weight_decay))
             self.models.append(arg)
