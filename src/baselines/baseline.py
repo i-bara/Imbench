@@ -3,16 +3,43 @@ import torch
 import torch.nn.functional as F
 import random
 import os
-import tqdm
+import argparse
+import datetime
 from data_utils import get_dataset, get_longtail_split
 from sklearn.metrics import balanced_accuracy_score, f1_score, roc_auc_score
+
+
+class Timer:
+    def __init__(self, baseline) -> None:
+        self.time = datetime.datetime.now()
+        self.baseline = baseline
+
+
+    def begin(self):
+        self.time = datetime.datetime.now()
+
+
+    def end(self, text=''):
+        self.baseline.debug(f'time passed: {datetime.datetime.now() - self.time} ({text})')
+
+    
+    def tick(self, text=''):
+        self.end(text=text)
+        self.begin()
 
 
 class Baseline:
     def parse_args(parser):
         pass
 
-    
+
+    def add_argument(parser, *args, **kwargs):
+        try:
+            parser.add_argument(*args, **kwargs)
+        except argparse.ArgumentError:
+            pass
+
+
     def debug(self, *args_):
         if self.args.debug:
             print(*args_)
@@ -224,6 +251,8 @@ class Baseline:
         self.test_bacc = 0.
         self.test_f1 = 0.
         self.test_auc = 0.
+
+        self.timer = Timer(self)
 
 
     def run(self):

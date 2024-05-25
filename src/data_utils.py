@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import random
 from torch_scatter import scatter_add
-from ogb.nodeproppred import PygNodePropPredDataset
+from ogb.nodeproppred import NodePropPredDataset
 
 def get_dataset(name, path, split_type='public'):
     import torch_geometric.transforms as T

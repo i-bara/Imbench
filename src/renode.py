@@ -69,8 +69,7 @@ class IMB_LOSS:
 
 
 
-    def compute(self,pred,target):
-
+    def __call__(self,pred,target):
         if self.loss_name == 'ce':
             return F.cross_entropy(pred,target,weight=None,reduction='none')
 

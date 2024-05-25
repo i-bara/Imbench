@@ -14,12 +14,12 @@ class TopoaucModel(GnnModel):
 
 
     def warmup_criterion(self, output, y, mask, weight):
-        loss = self.baseline.renode_loss.compute(output[mask], y[mask])
+        loss = self.baseline.imb_loss(output[mask], y[mask])
         return torch.mean(loss)
 
 
     def criterion(self, output, y, mask, weight):
-        # loss = self.baseline.renode_loss.compute(output[mask], y[mask])
+        # loss = self.baseline.imb_loss(output[mask], y[mask])
         output = F.softmax(output, dim=1)
         loss = self.baseline.auc_loss(output, y, mask, w_values_dict=None)
         return torch.mean(loss)
@@ -49,7 +49,7 @@ class topoauc(pr):
         super().__init__(args)
         # self.use(TopoaucModel)
 
-        self.renode_loss = IMB_LOSS(args.warmup_loss_name, self.n_cls, self.num_list('train'), args.factor_focal, args.factor_cb)
+        self.imb_loss = IMB_LOSS(args.warmup_loss_name, self.n_cls, self.num_list('train'), args.factor_focal, args.factor_cb)
 
         adj_bool = index2adj_bool(self.data.edge_index, self.n_sample).to(self.device)
         self.auc_loss = ELossFN(self.n_cls, self.n_sample, adj_bool, self.Pi, self.gpr, self.mask('train'), self.device, 

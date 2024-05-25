@@ -1,14 +1,20 @@
 import argparse
 from baselines.baseline import Baseline
+from baselines.gnn import gnn
 from baselines.lte4g import lte4g
 from baselines.renode import renode
 from baselines.topoauc import topoauc
+from baselines.hyperimba import hyperimba
+from baselines.pastel import pastel
 
 
 baseline_dict = {
+    'vanilla': gnn,
     'lte4g': lte4g,
     'renode': renode,
     'topoauc': topoauc,
+    'hyperimba': hyperimba,
+    'pastel': pastel,
 }
 
 
@@ -16,7 +22,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     # Method
-    parser.add_argument('--method', type=str, choices=['vanilla', 'drgcn', 'smote', 'imgagn', 'lte4g', 'ens', 'tam', 'topoauc', 'sha', 'renode'], default='vanilla', help='the method used to train')
+    parser.add_argument('--method', type=str, choices=['vanilla', 'drgcn', 'smote', 'imgagn', 'lte4g', 'ens', 'tam', 'topoauc', 'sha', 'renode', 'pastel', 'hyperimba'], default='vanilla', help='the method used to train')
 
     # Device
     parser.add_argument('--device', type=str, default='cuda:0', help='device')
