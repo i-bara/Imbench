@@ -39,11 +39,13 @@ class PastelModel(GnnModel):
 
 
     def graph_regularization(self, x, cur_raw_adj, **kwargs):
+        cur_raw_adj = cur_raw_adj - torch.min(cur_raw_adj)  # The first time may be minus
         graph_loss = 0
         L = torch.diagflat(torch.sum(cur_raw_adj, -1)) - cur_raw_adj
         graph_loss += self.args.smoothness_ratio * torch.trace(torch.mm(x.transpose(-1, -2), torch.mm(L, x))) / int(np.prod(cur_raw_adj.shape))
-        ones_vec = torch.ones(cur_raw_adj.size(-1), device=self.args.device)
-        graph_loss += -self.args.degree_ratio * torch.mm(ones_vec.unsqueeze(0), torch.log(torch.mm(cur_raw_adj, ones_vec.unsqueeze(-1)) + 1e-12)).squeeze() / cur_raw_adj.shape[-1]
+        # ones_vec = torch.ones(cur_raw_adj.size(-1), device=self.args.device)
+        # graph_loss += -self.args.degree_ratio * torch.mm(ones_vec.unsqueeze(0), torch.log(torch.mm(cur_raw_adj, ones_vec.unsqueeze(-1)) + 1e-12)).squeeze() / cur_raw_adj.shape[-1]
+        graph_loss -= self.args.degree_ratio * cur_raw_adj.sum(dim=1).add_(1e-12).log().sum(dim=0)
         graph_loss += self.args.sparsity_ratio * torch.sum(torch.pow(cur_raw_adj, 2)) / int(np.prod(cur_raw_adj.shape))
         return graph_loss
 
@@ -134,19 +136,22 @@ class pastel(gnn):
         adj = nx.adjacency_matrix(nx.from_numpy_array(adj))
         adj = adj + sp.eye(adj.shape[0])
         adj = normalize_sparse_adj(adj)
-        adj = torch.Tensor(adj.todense())
+        adj = torch.Tensor(adj.todense()).to(self.device)
         self.adj = adj
         self.cur_adj = adj
         self.group_pagerank_before = self.pr(adj)
         self.update_gpr(0)
         self.after_hooks = [self.update_gpr]
+        self.epoch_time_stat = 3
 
 
     def cal_spd(self):
         # num_anchors = self.num('train')
         # num_nodes = self.n_sample
         # spd_mat = np.zeros((num_nodes, num_anchors))
-        shortest_path_distance_mat = self.shortest_path_dists
+
+        shortest_path_distance_mat = torch.from_numpy(self.shortest_path_dists).to(self.device).to(torch.float32)  # Use tensor instead of numpy
+        # shortest_path_distance_mat = self.shortest_path_dists
 
         # for iter1 in range(num_nodes):
         #     for iter2 in range(num_anchors):
@@ -154,7 +159,7 @@ class pastel(gnn):
 
         spd_mat = shortest_path_distance_mat[:, self.mask('train')]
 
-        max_spd = np.max(spd_mat)
+        max_spd = torch.max(spd_mat).item()
         spd_mat = spd_mat / max_spd
 
         return spd_mat
@@ -185,7 +190,7 @@ class pastel(gnn):
         if epoch % self.args.pe_every_epochs == 0:
             self.position_flag = 1
             self.shortest_path_dists = self.cal_shortest_path_distance(self.cur_adj, 5)
-            self.shortest_path_dists_anchor = torch.from_numpy(self.cal_spd()).to(self.device).to(torch.float32)
+            self.shortest_path_dists_anchor = self.cal_spd()
         else:
             self.position_flag = 0
         
@@ -364,11 +369,19 @@ class GraphLearner(nn.Module):
         self.device = device
         self.input_size=input_size
 
-        self.weight_tensor = torch.Tensor(n_pers, input_size)
-        self.weight_tensor = nn.Parameter(nn.init.xavier_uniform_(self.weight_tensor))
-        
-        self.weight_tensor_for_pe = torch.Tensor(self.n_anchors, hidden_size)
-        self.weight_tensor_for_pe = nn.Parameter(nn.init.xavier_uniform_(self.weight_tensor_for_pe))
+        # self.weight_tensor = torch.Tensor(n_pers, input_size)
+        # self.weight_tensor = nn.Parameter(nn.init.xavier_uniform_(self.weight_tensor))
+
+        # self.weight_tensor_for_pe = torch.Tensor(self.n_anchors, hidden_size)
+        # self.weight_tensor_for_pe = nn.Parameter(nn.init.xavier_uniform_(self.weight_tensor_for_pe))
+
+        self.weight_tensor = torch.empty(n_pers, input_size, dtype=torch.float32, device=device)
+        nn.init.xavier_uniform_(self.weight_tensor)
+        self.weight_tensor = nn.Parameter(self.weight_tensor)
+
+        self.weight_tensor_for_pe = torch.empty(n_anchors, hidden_size, dtype=torch.float32, device=device)
+        nn.init.xavier_uniform_(self.weight_tensor_for_pe)
+        self.weight_tensor_for_pe = nn.Parameter(self.weight_tensor_for_pe)
 
 
     def forward(self, context, position_encoding, gpr_rank, position_flag, ctx_mask=None):
