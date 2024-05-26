@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import random
 from torch_scatter import scatter_add
-from ogb.nodeproppred import NodePropPredDataset
+from ogb.nodeproppred import PygNodePropPredDataset
 
 def get_dataset(name, path, split_type='public'):
     import torch_geometric.transforms as T
@@ -35,7 +35,9 @@ def get_dataset(name, path, split_type='public'):
         from torch_geometric.datasets import Coauthor
         return Coauthor(root=path, name='cs', transform=T.NormalizeFeatures())
     elif name.startswith('ogbn'):
-        return PygNodePropPredDataset(name=name, root=path)
+        data = PygNodePropPredDataset(name=name, root=path)
+        data[0].y.squeeze_()
+        return data
     else:
         raise NotImplementedError("Not Implemented Dataset!")
 
@@ -93,7 +95,7 @@ def sort(data, data_mask=None):
     return class_num_list_tensor, indices, inv_indices
 
 
-def split_lt(class_num_list, indices, inv_indices, imb_ratio, n_cls, n):
+def split_lt(class_num_list, indices, inv_indices, imb_ratio, n_cls, n, keep=0):
     class_num_list = class_num_list[indices]  # sort
     mu = np.power(imb_ratio, 1 / (n_cls - 1))
     _mu = 1 / mu
@@ -103,12 +105,12 @@ def split_lt(class_num_list, indices, inv_indices, imb_ratio, n_cls, n):
         n_max = n / (imb_ratio * mu - 1) * (mu - 1) * imb_ratio
     class_num_list_lt = []
     for i in range(n_cls):
-        class_num_list_lt.append(round(min(max(n_max * np.power(_mu, i), 1), class_num_list[i])))
+        class_num_list_lt.append(round(min(max(n_max * np.power(_mu, i), 1), class_num_list[i].item() - keep)))
     class_num_list_lt = torch.tensor(class_num_list_lt)
     return class_num_list_lt[inv_indices]  # unsort
 
 
-def split_step(class_num_list, indices, inv_indices, imb_ratio, n_cls, n):
+def split_step(class_num_list, indices, inv_indices, imb_ratio, n_cls, n, keep=0):
     class_num_list = class_num_list[indices]  # sort
     n_h = n_cls // 2
     n_t = n_cls - n_h
@@ -117,22 +119,22 @@ def split_step(class_num_list, indices, inv_indices, imb_ratio, n_cls, n):
     class_num_list_lt = []
     for i in range(n_cls):
         if i < n_h:
-            class_num_list_lt.append(int(h))
+            class_num_list_lt.append(min(int(h), class_num_list[i].item() - keep))
         else:
-            class_num_list_lt.append(int(t))
+            class_num_list_lt.append(min(int(t), class_num_list[i].item() - keep))
     class_num_list_lt = torch.tensor(class_num_list_lt)
     return class_num_list_lt[inv_indices]  # unsort
 
 
-def split_same(class_num_list, indices, inv_indices, imb_ratio, n_cls, n):
+def split_same(class_num_list, indices, inv_indices, imb_ratio, n_cls, n, keep=0):
     class_num_list_lt = []
     for i in range(n_cls):
-        class_num_list_lt.append(round(n / n_cls))
+        class_num_list_lt.append(min(round(n / n_cls), class_num_list[i].item() - keep))
     class_num_list_lt = torch.tensor(class_num_list_lt)
-    return class_num_list_lt 
+    return class_num_list_lt
 
 
-def choose(class_num_list, class_num_list_lt, indices, data, data_mask, choose_deg='smallest'):
+def choose(class_num_list, class_num_list_lt, indices, data, data_mask, choose_deg='smallest', keep=0):
     node_mask = data_mask.clone().detach()
     for i in indices:
         if choose_deg is not None:
@@ -156,7 +158,7 @@ def choose(class_num_list, class_num_list_lt, indices, data, data_mask, choose_d
                 node_mask[remove_idx] = False
         else:
             idx = torch.arange(data.y.shape[0], dtype=torch.int64, device=data.y.device)[node_mask & (data.y == i)]
-            node_mask[idx[min(len(idx), class_num_list_lt[i]):]] = False
+            node_mask[idx[min(len(idx) - keep, class_num_list_lt[i]):]] = False
     
     assert torch.equal(node_mask & data_mask, node_mask)
 
@@ -333,7 +335,7 @@ def get_longtail_split(data, imb_ratio, train_ratio, val_ratio):
 
     data_mask = torch.ones(data.y.shape[0], dtype=torch.bool, device=data.y.device)
 
-    data_train_mask = choose(class_num_list, class_num_list_train, indices, data, data_mask, choose_deg=None)
+    data_train_mask = choose(class_num_list, class_num_list_train, indices, data, data_mask, choose_deg=None, keep=20)  # At least 20 for val and test
 
     # val
     class_num_list_val = split_same(class_num_list=class_num_list, indices=indices, inv_indices=inv_indices, \
@@ -341,7 +343,7 @@ def get_longtail_split(data, imb_ratio, train_ratio, val_ratio):
 
     data_mask = data_mask & torch.logical_not(data_train_mask)
 
-    data_val_mask = choose(class_num_list, class_num_list_val, indices, data, data_mask, choose_deg=None)
+    data_val_mask = choose(class_num_list, class_num_list_val, indices, data, data_mask, choose_deg=None, keep=10)  # At least 10 for test
 
     # test
     data_test_mask = data_mask & torch.logical_not(data_val_mask)
