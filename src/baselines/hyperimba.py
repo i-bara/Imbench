@@ -13,6 +13,8 @@ class HyperimbaModel(GnnModel):
             name = 'photo'
         elif self.args.dataset == 'Amazon-Computers':
             name = 'computers'
+        elif self.args.dataset == 'CiteSeer':
+            name = 'Citeseer'
         else:
             name = self.args.dataset
 
