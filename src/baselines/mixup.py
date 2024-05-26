@@ -1,130 +1,12 @@
 from .nets import GCNConv, GATConv, SAGEConv
 from .gnn import gnn, GnnModelWithEncoder
 import torch
-from torch import nn, optim
+from torch import nn
 from torch.nn import functional as F
-from .baseline import Baseline, Timer
+from .baseline import Baseline
 from scipy.spatial.distance import pdist, squareform
 import random
-import tqdm
 import numpy as np
-from renode import index2dense
-
-
-class GNN(nn.Module):
-    ''' 
-    A GNN backbone, such as GCN, GAT and SAGE.
-    '''
-    def __init__(self, Conv, n_feat, n_hid, n_cls, dropout, n_layer, **kwargs):
-        super(GNN, self).__init__()
-        self.convs = nn.ModuleList([Conv(n_feat if layer == 0 else n_hid, 
-                                         n_cls if layer + 1 == n_layer else n_hid, **kwargs) 
-                                         for layer in range(n_layer)])
-
-        self.dropout = dropout
-        # self.x_dropout = x_dropout
-        # self.edge_index_dropout = edge_index_dropout
-
-        self.reg_params = self.convs[:-1].parameters()
-        self.non_reg_params = self.convs[-1].parameters()
-
-
-    def forward(self, x, edge_index, edge_weight=None, **kwargs):
-        # x = F.dropout(x, p=self.x_dropout, training=self.training)
-        # edge_index = F.dropout(edge_index, p=self.edge_index_dropout, training=self.training)
-
-        for conv in self.convs[:-1]:
-            x = conv(x=x, edge_index=edge_index, edge_weight=edge_weight, **kwargs)  # is_add_self_loops=self.is_add_self_loops, 
-            x = F.relu(x)
-            x = F.dropout(x, p=self.dropout, training=self.training)
-            
-        x = self.convs[-1](x=x, edge_index=edge_index, edge_weight=edge_weight, **kwargs)
-        # , edge_index
-        return x
-
-
-class GnnModel(nn.Module):
-    def __init__(self, args, baseline):
-        super(GnnModel, self).__init__()
-        self.args = args
-        self.baseline = baseline
-        self.criterion_default = self.criterion
-        self.criterion_dict = dict()
-
-        self.regularizations = set()
-
-        self.conv_dict, self.gnn_kwargs = self.config_gnn()
-
-        self.classifier = GNN(Conv=self.conv_dict[args.net], 
-                              n_feat=baseline.n_feat, n_hid=args.feat_dim, n_cls=baseline.n_cls, 
-                              dropout=args.dropout, 
-                            #   x_dropout=args.x_dropout, 
-                            #   edge_index_dropout=args.edge_index_dropout, 
-                              n_layer=args.n_layer, **self.gnn_kwargs)
-
-
-    def config_gnn(self):
-        '''
-        Return:
-        conv_dict: mapping the conv name to the conv layer.
-        gnn_kwargs: kwargs used to create GNN backbone.
-        '''
-        conv_dict = {
-            'GCN': GCNConv,
-            'GAT': GATConv,
-            'SAGE': SAGEConv,
-        }
-        gnn_kwargs = dict()
-        return conv_dict, gnn_kwargs
-    
-
-    @DeprecationWarning
-    def regularization(func):
-        def wrapper(self, *args, **kwargs):
-            self.regularizations.add(func)
-            return func(self, *args, **kwargs)
-        return wrapper
-
-
-    def criterion(self, output, y, mask, weight):
-        return F.cross_entropy(output[mask], y[mask], weight=weight)
-
-
-    def forward(self, x, edge_index, y=None, mask=None, weight=None, logit=False, phase=None, reg=None, **kwargs):
-        if mask is None:
-            mask = self.baseline.mask()
-        
-        output = self.classifier(x=x, edge_index=edge_index, **kwargs)
-        if logit:
-            return output
-        
-        if phase is None:
-            criterions = self.criterion_default
-        else:
-            criterions = self.criterion_dict[phase]
-
-        if type(criterions) == dict:
-            loss = 0
-            for criterion, criterion_weight in criterions.items():
-                if criterion in self.regularizations:
-                    loss += criterion_weight * criterion(**reg)
-                else:
-                    loss += criterion_weight * criterion(output=output, y=y, mask=mask, weight=weight)
-        elif type(criterions) == list:
-            loss = 0
-            for criterion in criterions:
-                if criterion in self.regularizations:
-                    loss += criterion(**reg)
-                else:
-                    loss += criterion(output=output, y=y, mask=mask, weight=weight)
-        else:
-            criterion = criterions
-            if criterion in self.regularizations:
-                loss = criterion(**reg)
-            else:
-                loss = criterion(output=output, y=y, mask=mask, weight=weight)
-        
-        return loss
 
 
 class mixup(gnn):
@@ -133,6 +15,9 @@ class mixup(gnn):
         Baseline.add_argument(parser, "--up_scale", type=float, default=1, help="")
         Baseline.add_argument(parser, "--scale", type=float, default=0, help="")
         Baseline.add_argument(parser, "--im_class_ratio", type=int, default=0.33, help="")
+
+
+
 
 
     def __init__(self, args):

@@ -22,7 +22,7 @@ def parse_args():
 args = parse_args()
 
 all_config = dict()
-all_config['methods'] = ['vanilla', 'drgcn', 'smote', 'imgagn', 'mixup', 'ens', 'tam', 'lte4g', 'sann', 'sha', 'renode', 'pastel', 'hyperimba']
+all_config['methods'] = ['vanilla', 'drgcn', 'smote', 'imgagn', 'dpgnn', 'mixup', 'ens', 'tam', 'lte4g', 'sann', 'sha', 'renode', 'pastel', 'hyperimba']
 all_config['datasets'] = ['Cora_100', 'Cora_20', 'Cora_1', 
                           'CiteSeer_100', 'CiteSeer_20', 'CiteSeer_1', 
                           'PubMed_100', 'PubMed_20', 'PubMed_1', 
