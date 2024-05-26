@@ -18,7 +18,7 @@ def parse_args():
 
 args = parse_args()
 
-if os.path.isdir('log'):
+if not os.path.isdir('log'):
     os.system('mkdir log')
 
 command = f'srun -p dell --gres=gpu:V100:1 --time=23:59:59 python benchmark.py {args.name} --gpu > log/"$(date +%Y-%m-%d-%H-%M-%S-%N)".log 2>&1'

@@ -2,7 +2,7 @@ import os
 import datetime
 
 t = datetime.datetime.now()
-backup_dirs = ['records', 'benchmark']
+backup_dirs = ['records', 'benchmark']  # It will backup these dirs!
 
 if not os.path.isdir('backup'):
     os.system('mkdir backup')
