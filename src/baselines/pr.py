@@ -6,19 +6,7 @@ class pr(gnn):
     def __init__(self, args):
         super().__init__(args)
         self.Pi = self.pr(self.data.edge_index)
-
-        # calculating the ReNode Weight
-        gpr_matrix = [] # the class-level influence distribution
-
-        for c in range(self.n_cls):
-            #iter_Pi = data.Pi[torch.tensor(target_data.train_node[iter_c]).long()]
-            iter_Pi = self.Pi[self.mask(c) & self.mask('train')] # check! is it same with above line?
-            iter_gpr = torch.mean(iter_Pi,dim=0).squeeze()
-            gpr_matrix.append(iter_gpr)
-
-        temp_gpr = torch.stack(gpr_matrix,dim=0)
-        temp_gpr = temp_gpr.transpose(0,1)
-        self.gpr = temp_gpr
+        self.gpr = self.g(self.Pi)
 
         # I_star = torch.zeros(self.n_sample)
 

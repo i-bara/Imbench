@@ -268,7 +268,10 @@ class gnn(Baseline):
             return self.model(x=self.data.x, edge_index=self.data.edge_index, y=self.data.y, mask=self.mask(mode), **self.forward_kwargs)
         
 
-    def pr(self, edge_index, pagerank_prob=0.85, limit=None, k=None, eps=None):
+    def pr(self, edge_index, pagerank_prob=0.85, limit=None, k=None, eps=None, device=None):
+        if device is None:
+            device = self.device
+
         ## ReNode method ##
         ## hyperparam ##
 
@@ -280,29 +283,39 @@ class gnn(Baseline):
             A = edge_index
 
         if limit is not None and self.n_sample >= limit:  # pagerank limit proposed by PASTEL
-            A_hat = A.to(self.device) + torch.eye(A.size(0)).to(self.device)
+            A_hat = A.to(device) + torch.eye(A.size(0)).to(device)
             D = torch.sum(A_hat, 1)
-            D_inv = torch.eye(self.n_sample).to(self.device)
+            D_inv = torch.eye(self.n_sample).to(device)
 
             for iter in range(self.n_sample):
                 if (D[iter] == 0):
                     D[iter] = 1e-12
                 D_inv[iter][iter] = 1.0 / D[iter]
-            D = D_inv.sqrt().to(self.device)
+            D = D_inv.sqrt().to(device)
 
             A_hat = torch.mm(torch.mm(D, A_hat), D)
-            temp_matrix = torch.eye(A.size(0)).to(self.device) - pagerank_prob * A_hat
+            temp_matrix = torch.eye(A.size(0)).to(device) - pagerank_prob * A_hat
             temp_matrix = temp_matrix.cpu().numpy()
             temp_matrix_inv = np.linalg.inv(temp_matrix).astype(np.float32)
 
-            inv = torch.from_numpy(temp_matrix_inv).to(self.device)
+            inv = torch.from_numpy(temp_matrix_inv).to(device)
             Pi = pr_prob * inv
         else:  # pagerank implemented by renode
-            A_hat   = A.to(self.device) + torch.eye(A.size(0)).to(self.device) # add self-loop
+            A = A.to(device)
+            A_hat   = A + torch.eye(A.size(0), device=device) # add self-loop
             D       = torch.diag(torch.sum(A_hat,1))
             D       = D.inverse().sqrt()
             A_hat   = torch.mm(torch.mm(D, A_hat), D)
-            Pi = pr_prob * ((torch.eye(A.size(0)).to(self.device) - (1 - pr_prob) * A_hat).inverse())
+            # try:
+            #     if self.nnn == 1:
+            #         exit()
+            #     else:
+            #         self.nnn += 1
+            # except AttributeError:
+            #     self.nnn = 0
+            Pi = pr_prob * ((torch.eye(A.size(0), device=device) - (1 - pr_prob) * A_hat).inverse())  # pastel will be stuck on the inverse() over GPU?
+            
+            
         # Pi = Pi.cpu()
 
         # two function from SHA to simplify self.Pi, e.g. self.Pi = get_top_k_matrix(self.Pi)
@@ -328,6 +341,20 @@ class gnn(Baseline):
             Pi = get_clipped_matrix(Pi, eps=eps)
 
         return Pi
+
+
+    def g(self, Pi):
+        # calculating the ReNode Weight
+        gpr_matrix = [] # the class-level influence distribution
+
+        for c in range(self.n_cls):
+            #iter_Pi = data.Pi[torch.tensor(target_data.train_node[iter_c]).long()]
+            iter_Pi = Pi[(self.mask(c) & self.mask('train')).to(Pi.device)] # check! is it same with above line?
+            iter_gpr = torch.mean(iter_Pi,dim=0).squeeze()
+            gpr_matrix.append(iter_gpr)
+
+        temp_gpr = torch.stack(gpr_matrix,dim=0)
+        return temp_gpr.transpose(0,1)
 
 
     def assert_almost_equal(self, a, b, eps=1e-3):

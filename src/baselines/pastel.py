@@ -139,7 +139,7 @@ class pastel(gnn):
         adj = torch.Tensor(adj.todense()).to(self.device)
         self.adj = adj
         self.cur_adj = adj
-        self.group_pagerank_before = self.pr(adj)
+        self.group_pagerank_before = self.g(self.pr(adj))
         self.update_gpr(0)
         self.after_hooks = [self.update_gpr]
         self.epoch_time_stat = 3
@@ -247,8 +247,8 @@ class pastel(gnn):
     def update_gpr(self, epoch):
         # Calculate group pagerank
         if epoch % self.args.gpr_every_epochs == 0:
-            self.group_pagerank_after = self.pr(self.cur_adj.detach())
-            self.group_pagerank_args = self.cal_group_pagerank_args(self.group_pagerank_before, self.group_pagerank_after)
+            self.group_pagerank_after = self.g(self.pr(self.cur_adj.detach(), device='cpu')).to(self.device)
+            self.group_pagerank_args = self.cal_group_pagerank_args(self.group_pagerank_before, self.group_pagerank_after).to(self.device)
 
 
     def epoch_loss(self, epoch, mode=None):
