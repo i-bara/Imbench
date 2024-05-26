@@ -118,7 +118,7 @@ class pastel(gnn):
         self.use(PastelModel)
 
         def index2dense(edge_index, nnode=2708):
-            idx = edge_index.numpy()
+            idx = edge_index.cpu().numpy()
             adj = np.zeros((nnode,nnode))
             adj[(idx[0], idx[1])] = 1
             return adj
