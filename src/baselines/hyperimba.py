@@ -7,7 +7,7 @@ from torch_geometric.utils import add_self_loops, remove_self_loops
 
 class HyperimbaModel(GnnModel):
     def config_gnn(self):
-        if self.args.dataset == 'Pumbed':
+        if self.args.dataset == 'Pubmed':
             name = 'pubmed'
         elif self.args.dataset == 'Amazon-Photo':
             name = 'photo'
