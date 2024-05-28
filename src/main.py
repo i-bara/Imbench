@@ -388,8 +388,8 @@ if args.dataset in ['Cora', 'CiteSeer', 'PubMed', 'chameleon', 'squirrel', 'Acto
     # print(class_num_list, data_train_mask, idx_info, train_node_mask, train_edge_mask) 
 
 elif args.dataset in ['Coauthor-CS', 'Amazon-Computers', 'Amazon-Photo', 'ogbn-arxiv']:
-    if args.dataset == 'ogbn-arxiv':
-        data.y = data.y[:, 0]
+    # if args.dataset == 'ogbn-arxiv':
+    #     data.y = data.y[:, 0]
 
     if args.imb_ratio != 0:
         data_train_mask, data_val_mask, data_test_mask = get_longtail_split(data, imb_ratio=args.imb_ratio, train_ratio=0.1, val_ratio=0.1)
