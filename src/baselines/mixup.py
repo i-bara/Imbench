@@ -14,10 +14,7 @@ class mixup(gnn):
         # up_scale=1.0, im_class_num=3, scale=0.0
         Baseline.add_argument(parser, "--up_scale", type=float, default=1, help="")
         Baseline.add_argument(parser, "--scale", type=float, default=0, help="")
-        Baseline.add_argument(parser, "--im_class_ratio", type=int, default=0.33, help="")
-
-
-
+        Baseline.add_argument(parser, "--im_class_ratio", type=float, default=0.33, help="")
 
 
     def __init__(self, args):
