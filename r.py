@@ -22,12 +22,14 @@ args = parse_args()
 if not os.path.isdir('log'):
     os.system('mkdir log')
 
+print(f'[{datetime.datetime.now()}]: Begin!')
+
 for name in args.names:
     command = f'python benchmark.py {name} --gpu > log/"$(date +%Y-%m-%d-%H-%M-%S-%N)".log 2>&1'
     print(f'[{datetime.datetime.now()}]: {command}    ', end='')
     os.system(command)
     print(f'OK')
 
-print('Finish!')
+print(f'[{datetime.datetime.now()}]: Finish!')
 os.system('python vgg.py')
 print('waiting quit...')
