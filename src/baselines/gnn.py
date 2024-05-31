@@ -348,7 +348,7 @@ class gnn(Baseline):
                                                             size=self.n_sample)
                 A_hat = D @ A_hat @ D
             else:
-                A_hat   = A + torch.eye(A.size(0), layout=torch.sparse_csr, device=device) # add self-loop
+                A_hat   = A + torch.eye(A.size(0), device=device) # add self-loop
                 D       = torch.diag(torch.sum(A_hat,1))
                 D       = D.inverse().sqrt()
                 # D       = torch.diag(1 / torch.sqrt(torch.sum(A_hat, dim=1)))
