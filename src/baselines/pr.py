@@ -5,8 +5,7 @@ import torch
 class pr(gnn):
     def __init__(self, args):
         super().__init__(args)
-        self.Pi = self.pr(self.data.edge_index)
-        self.gpr = self.g(self.Pi)
+        
 
         # I_star = torch.zeros(self.n_sample)
 
@@ -25,3 +24,7 @@ class pr(gnn):
 
         # assert torch.all((self.gpr - self.pastel_gpr < 1e-3) & (self.pastel_gpr - self.gpr < 1e-3))
         # # True
+
+    def init(self):
+        self.Pi = self.pr(self.data.edge_index)
+        self.gpr = self.g(self.Pi)

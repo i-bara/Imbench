@@ -317,3 +317,84 @@ class Baseline:
     #         f1s[set_] = f1_score(y_true, y_pred, average='macro')
     #         aucs[set_] = roc_auc_score(y_true, F.softmax(logits[mask], dim=1).cpu().numpy(), average='macro', multi_class='ovr')
     #     return accs, baccs, f1s, aucs
+
+
+    def save(self):
+        self.data_original = self.data.clone().detach()
+        self.masks_original = dict()
+        for name, mask in self.masks.items():
+            self.masks_original[name] = mask.clone().detach()
+        self.n_sample_original = self.n_sample
+
+
+    def restore(self):
+        self.data = self.data_original.clone().detach()
+        self.masks = dict()
+        for name, mask in self.masks_original.items():
+            self.masks[name] = mask.clone().detach()
+        self.n_sample = self.n_sample_original
+
+
+    def init_batch(self, minibatch_size):
+        self.idx_batch = dict()
+        self.now_batch = dict()
+        self.each_batch = dict()
+        for name in ['train', 'val', 'test']:
+            self.idx_batch[name] = [self.idx(mask=self.mask(name) & self.mask(c)) for c in range(self.n_cls)]
+            self.now_batch[name] = [0 for _ in range(self.n_cls)]
+            self.each_batch[name] = [max(int(self.num(mask=self.mask(name) & self.mask(c)) / self.data.x.shape[0] * minibatch_size), 1)
+                               for c in range(self.n_cls)]
+
+
+    def batch(self, random=False):
+        idx = []
+        for name in ['train', 'val', 'test']:
+            for c in range(self.n_cls):
+                # random.shuffle(self.idx_batch[name][c])
+                if random:
+                    idx += np.random.choice(self.idx_batch[name][c].cpu().numpy(), self.each_batch[name][c], replace=False).tolist()
+                else:
+                    size = len(self.idx_batch[name][c])
+                    begin = self.now_batch[name][c] % size
+                    end = begin + self.each_batch[name][c] % size
+                    if begin < end:
+                        idx += self.idx_batch[name][c][begin:end]
+                    else:
+                        idx += self.idx_batch[name][c][begin:] + self.idx_batch[name][c][:end]
+                self.now_batch[name][c] += self.each_batch[name][c]
+        inv = -torch.ones(self.data.x.shape[0], dtype=torch.int64, device=self.device)
+        inv[idx] = torch.arange(len(idx), dtype=torch.int64, device=self.device)
+        idx = torch.tensor(idx, dtype=torch.int64, device=self.device)
+        self.data.x = self.data.x[idx]
+        self.data.edge_index = inv[self.data.edge_index]
+        self.data.edge_index = self.data.edge_index[:, (self.data.edge_index[0] != -1) & (self.data.edge_index[1] != -1)]
+        self.data.y = self.data.y[idx]
+        for name, mask in self.masks.items():
+            self.masks[name] = mask[idx]
+        self.n_sample = self.data.x.shape[0]
+
+
+    def _batch(self, epoch, minibatch_size):
+        batch_size = self.data.x.shape[0]
+        begin = epoch * minibatch_size % batch_size
+        end = (epoch + 1) * minibatch_size % batch_size
+        self.n_sample = minibatch_size
+        if begin < end:
+            self.data.x = self.data.x[begin:end]
+            self.data.edge_index = self.data.edge_index[:, (self.data.edge_index[0] >= begin)
+                                                         & (self.data.edge_index[0] < end)
+                                                         & (self.data.edge_index[1] >= begin)
+                                                         & (self.data.edge_index[1] < end)] - begin
+            self.data.y = self.data.y[begin:end]
+            for name, mask in self.masks.items():
+                self.masks[name] = mask[begin:end]
+        else:
+            self.data.x = torch.cat((self.data.x[begin:], self.data.x[:end]))
+            self.data.edge_index = self.data.edge_index[:, ((self.data.edge_index[0] >= begin)
+                                                         | (self.data.edge_index[0] < end))
+                                                         & ((self.data.edge_index[1] >= begin)
+                                                         | (self.data.edge_index[1] < end))] - begin
+            self.data.edge_index[self.data.edge_index < 0] += batch_size
+            self.data.y = torch.cat((self.data.y[begin:], self.data.y[:end]))
+            for name, mask in self.masks.items():
+                self.masks[name] = torch.cat((mask[begin:], mask[:end]))

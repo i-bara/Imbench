@@ -6,6 +6,8 @@ from .baseline import Baseline, Timer
 import tqdm
 import numpy as np
 from renode import index2dense
+from torch_geometric.utils import to_torch_csr_tensor
+import random
 
 
 class GNN(nn.Module):
@@ -59,15 +61,7 @@ class GnnModel(nn.Module):
 
         self.conv_dict, self.gnn_kwargs = self.config_gnn()
 
-        self.classifier = GNN(Conv=self.conv_dict[args.net], 
-                              n_feat=baseline.n_feat, n_hid=args.feat_dim, n_cls=baseline.n_cls, 
-                              dropout=args.dropout, 
-                            #   x_dropout=args.x_dropout, 
-                            #   edge_index_dropout=args.edge_index_dropout, 
-                              n_layer=args.n_layer, **self.gnn_kwargs)
-        
-        self.reg_params = self.classifier.reg_params
-        self.non_reg_params = self.classifier.non_reg_params
+        self.config_classifier(GNN)
 
 
     def config_gnn(self):
@@ -83,6 +77,18 @@ class GnnModel(nn.Module):
         }
         gnn_kwargs = dict()
         return conv_dict, gnn_kwargs
+    
+
+    def config_classifier(self, n):
+        self.classifier = n(Conv=self.conv_dict[self.args.net], 
+                              n_feat=self.baseline.n_feat, n_hid=self.args.feat_dim, n_cls=self.baseline.n_cls, 
+                              dropout=self.args.dropout, 
+                            #   x_dropout=args.x_dropout, 
+                            #   edge_index_dropout=args.edge_index_dropout, 
+                              n_layer=self.args.n_layer, **self.gnn_kwargs)
+        
+        self.reg_params = self.classifier.reg_params
+        self.non_reg_params = self.classifier.non_reg_params
     
 
     @DeprecationWarning
@@ -194,6 +200,16 @@ class gnn(Baseline):
         self.epoch_timer2 = Timer(self)
         self.t = Timer(self)
         self.epoch_time_stat = 0
+        
+        self.minibatch_size = None
+        self.args.epoch *= 1 if args.dataset == 'ogbn-arxiv' else 1
+
+        self.save()
+        
+        if self.minibatch_size is not None:
+            self.init_batch(minibatch_size=self.minibatch_size)
+        else:
+            self.init()
 
 
     def train(self):
@@ -212,7 +228,7 @@ class gnn(Baseline):
             self.val_epoch(epoch=epoch)
             if self.epoch_time_stat >= 2:
                 self.epoch_timer.tick(f'val   : {epoch}')
-            output = self.epoch_loss(epoch=epoch, mode='test')
+            output = self._epoch_loss(epoch=epoch, mode='test')
             self.test(output)
             if self.epoch_time_stat >= 2:
                 self.epoch_timer.tick(f'test  : {epoch}')
@@ -223,7 +239,7 @@ class gnn(Baseline):
             if self.epoch_time_stat >= 1:
                 self.epoch_timer2.end(f'total : {epoch}')
 
-        output = self.epoch_loss(epoch=epoch, mode='test')
+        output = self._epoch_loss(epoch=epoch, mode='test')
         self.test(output)
         return output
 
@@ -254,11 +270,23 @@ class gnn(Baseline):
 
 
     def train_epoch_loss(self, epoch):
-        return self.epoch_loss(epoch=epoch, mode='train')
+        return self._epoch_loss(epoch=epoch, mode='train')
     
 
     def val_epoch_loss(self, epoch):
-        return self.epoch_loss(epoch=epoch, mode='val')
+        return self._epoch_loss(epoch=epoch, mode='val')
+
+
+    def _epoch_loss(self, epoch, mode='test'):
+        self.restore()
+        if self.minibatch_size is not None:
+            self.batch()
+            self.init()
+        return self.epoch_loss(epoch=epoch, mode=mode)
+    
+
+    def init(self):
+        pass
 
 
     def epoch_loss(self, epoch, mode='test'):
@@ -268,7 +296,7 @@ class gnn(Baseline):
             return self.model(x=self.data.x, edge_index=self.data.edge_index, y=self.data.y, mask=self.mask(mode), **self.forward_kwargs)
         
 
-    def pr(self, edge_index, pagerank_prob=0.85, limit=None, k=None, eps=None, device=None):
+    def pr(self, edge_index, pagerank_prob=0.85, limit=None, k=None, eps=None, device=None, iterations=None, sparse=False):
         if device is None:
             device = self.device
 
@@ -277,13 +305,21 @@ class gnn(Baseline):
 
         # calculating the Personalized PageRank Matrix
         pr_prob = 1 - pagerank_prob
-        try:
-            A = index2dense(edge_index, self.n_sample)
-        except IndexError:
-            A = edge_index
+
+        A = to_torch_csr_tensor(edge_index=edge_index, size=self.n_sample)
+        eye = to_torch_csr_tensor(edge_index=torch.stack((torch.arange(self.n_sample, dtype=torch.int64, device=device), 
+                                                          torch.arange(self.n_sample, dtype=torch.int64, device=device)), 
+                                                          dim=0), size=self.n_sample)
+        # A = csr_matrix((np.ones(edge_index.shape[1]), (edge_index[0], edge_index[1])), shape=(self.n_sample, self.n_sample))
+
+        # try:
+        #     A = index2dense(edge_index, self.n_sample)
+        #     exit()
+        # except IndexError:
+        #     A = edge_index
 
         if limit is not None and self.n_sample >= limit:  # pagerank limit proposed by PASTEL
-            A_hat = A.to(device) + torch.eye(A.size(0)).to(device)
+            A_hat = A.to(device) + torch.eye(A.size(0), layout=torch.sparse_csr).to(device)
             D = torch.sum(A_hat, 1)
             D_inv = torch.eye(self.n_sample).to(device)
 
@@ -302,10 +338,23 @@ class gnn(Baseline):
             Pi = pr_prob * inv
         else:  # pagerank implemented by renode
             A = A.to(device)
-            A_hat   = A + torch.eye(A.size(0), device=device) # add self-loop
-            D       = torch.diag(torch.sum(A_hat,1))
-            D       = D.inverse().sqrt()
-            A_hat   = torch.mm(torch.mm(D, A_hat), D)
+            if sparse:
+                A_hat = A + eye
+                D_ = torch.sqrt(torch.sum(A_hat, dim=1, keepdim=True))
+                D = to_torch_csr_tensor(edge_index=torch.stack((torch.arange(self.n_sample, dtype=torch.int64, device=device),   
+                                                            torch.arange(self.n_sample, dtype=torch.int64, device=device)), 
+                                                            dim=0), 
+                                                            edge_attr=1 / D_.values(),
+                                                            size=self.n_sample)
+                A_hat = D @ A_hat @ D
+            else:
+                A_hat   = A + torch.eye(A.size(0), layout=torch.sparse_csr, device=device) # add self-loop
+                D       = torch.diag(torch.sum(A_hat,1))
+                D       = D.inverse().sqrt()
+                # D       = torch.diag(1 / torch.sqrt(torch.sum(A_hat, dim=1)))
+                A_hat   = torch.mm(torch.mm(D, A_hat), D)
+            
+            # self.assert_almost_equal(A_hat, A_hat_1)
             # try:
             #     if self.nnn == 1:
             #         exit()
@@ -313,7 +362,13 @@ class gnn(Baseline):
             #         self.nnn += 1
             # except AttributeError:
             #     self.nnn = 0
-            Pi = pr_prob * ((torch.eye(A.size(0), device=device) - (1 - pr_prob) * A_hat).inverse())  # pastel will be stuck on the inverse() over GPU?
+            
+            if iterations is not None:
+                Pi = torch.ones((A.size(0), 1), dtype=torch.float, device=device) / A.size(0)
+                for _ in range(iterations):
+                    Pi = pr_prob * A_hat @ Pi + (1 - pr_prob) * torch.ones((A.size(0), 1), dtype=torch.float, device=device) / A.size(0)
+            else:
+                Pi = pr_prob * ((torch.eye(A.size(0), device=device) - (1 - pr_prob) * A_hat).inverse())  # pastel will be stuck on the inverse() over GPU?
             
             
         # Pi = Pi.cpu()
@@ -333,9 +388,28 @@ class gnn(Baseline):
             norm = A.sum(axis=0)
             norm[norm <= 0] = 1 # avoid dividing by zero
             return A/norm
+
+        def get_top_k_iter(A, k):
+            sorted_indices = torch.argsort(-A, axis=0)
+            top_k = torch.zeros_like(A)
+            for col in range(A.shape[1]):
+                top_k[sorted_indices[:k, col], col] = A[sorted_indices[:k, col], col]
+            norm = top_k.sum(axis=0)
+            norm[norm == 0] = 1
+            return top_k / norm
+
+        def get_top_k_csr(A, k):
+            num_nodes = A.shape[0]
+            pass
         
         if k is not None: 
-            Pi = get_top_k_matrix(Pi, k=k)
+            if iterations is not None:
+                Pi = get_top_k_iter(Pi, k=k)
+            else:
+                if sparse and iterations is None:
+                    Pi = get_top_k_csr(Pi, k=k)
+                else:
+                    Pi = get_top_k_matrix(Pi, k=k)
 
         if eps is not None:
             Pi = get_clipped_matrix(Pi, eps=eps)

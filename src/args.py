@@ -8,6 +8,9 @@ from baselines.hyperimba import hyperimba
 from baselines.pastel import pastel
 from baselines.mixup import mixup
 from baselines.dpgnn import dpgnn
+from baselines.ens import ens
+from baselines.sha import sha
+from baselines.tam import tam
 
 
 baseline_dict = {
@@ -19,6 +22,9 @@ baseline_dict = {
     'pastel': pastel,
     'mixup': mixup,
     'dpgnn': dpgnn,
+    'ens': ens,
+    'sha': sha,
+    'tam': tam,
 }
 
 

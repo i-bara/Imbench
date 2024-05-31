@@ -25,5 +25,8 @@ class renode(pr):
         super().__init__(args)
         self.use(RenodeModel)
 
-        self.imb_loss = IMB_LOSS(args.loss_name, self.n_cls, self.num_list('train'), args.factor_focal, args.factor_cb)
-        self.rn_weight =  get_renode_weight(self.data.y, self.Pi, self.gpr, self.mask('train'), args.rn_base, args.rn_max) #ReNode Weight
+        
+    def init(self):
+        super().init()
+        self.imb_loss = IMB_LOSS(self.args.loss_name, self.n_cls, self.num_list('train'), self.args.factor_focal, self.args.factor_cb)
+        self.rn_weight =  get_renode_weight(self.data.y, self.Pi, self.gpr, self.mask('train'), self.args.rn_base, self.args.rn_max) #ReNode Weight
