@@ -368,7 +368,10 @@ class gnn(Baseline):
                 for _ in range(iterations):
                     Pi = pr_prob * A_hat @ Pi + (1 - pr_prob) * torch.ones((A.size(0), 1), dtype=torch.float, device=device) / A.size(0)
             else:
-                Pi = pr_prob * ((torch.eye(A.size(0), device=device) - (1 - pr_prob) * A_hat).inverse())  # pastel will be stuck on the inverse() over GPU?
+                if sparse:
+                    raise NotImplementedError
+                else:
+                    Pi = pr_prob * ((torch.eye(A.size(0), device=device) - (1 - pr_prob) * A_hat).inverse())  # pastel will be stuck on the inverse() over GPU?
             
             
         # Pi = Pi.cpu()
@@ -417,7 +420,7 @@ class gnn(Baseline):
         return Pi
 
 
-    def g(self, Pi):
+    def g(self, Pi, iterations=False):
         # calculating the ReNode Weight
         gpr_matrix = [] # the class-level influence distribution
 
@@ -428,6 +431,8 @@ class gnn(Baseline):
             gpr_matrix.append(iter_gpr)
 
         temp_gpr = torch.stack(gpr_matrix,dim=0)
+        if iterations:
+            temp_gpr = temp_gpr.unsqueeze(dim=1)
         return temp_gpr.transpose(0,1)
 
 

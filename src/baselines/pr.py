@@ -26,5 +26,7 @@ class pr(gnn):
         # # True
 
     def init(self):
-        self.Pi = self.pr(self.data.edge_index)
-        self.gpr = self.g(self.Pi)
+        self.Pi = self.pr(self.data.edge_index, 
+                          iterations=40 if self.args.dataset == 'ogbn-arxiv' else None,
+                          sparse=self.args.dataset == 'ogbn-arxiv')
+        self.gpr = self.g(self.Pi, iterations=self.args.dataset == 'ogbn-arxiv')
