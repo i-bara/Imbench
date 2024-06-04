@@ -169,7 +169,9 @@ for method in method_list:
         benchmarks[(method, dataset)] = list()
 
 for record in records:
-    benchmarks[(record['method'], record['dataset'])].append((record['acc'], record['bacc'], record['f1'], record['auc']))
+    # method, dataset = record['method'], record['dataset']  # Obsolete
+    method, dataset = record['method'], f'{record['dataset']}_{str(int(float(record['imb_ratio'])))}'
+    benchmarks[(method, dataset)].append((record['acc'], record['bacc'], record['f1'], record['auc']))
 
 template_filename = 'Imbalance Benchmark Template.xlsx'
 filename = 'Imbalance Benchmark.xlsx'

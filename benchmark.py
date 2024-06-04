@@ -80,10 +80,13 @@ def config_args(method, dataset, seed):
 def experiment(method, dataset, seed, options, records, records_file, cache_file, output_path):
     done = False
     for record in records:
-        if record['method'] == method and record['dataset'] == dataset and record['seed'] == seed:
+        # if record['method'] == method and record['dataset'] == dataset and record['seed'] == seed:
+        if record['method'] == method and f'{record['dataset']}_{str(int(float(record['imb_ratio'])))}' == dataset and record['seed'] == seed:
             done = True
-
-    if not done:
+    
+    if done:
+        print('Have done!')
+    else:
         options_more = ''
         if not args.gpu:
             options_more += ' --device cpu'
@@ -95,36 +98,43 @@ def experiment(method, dataset, seed, options, records, records_file, cache_file
         else:
             output = ' > '
 
-        net = 'GCN'
-        output_file =  os.path.join(output_path, f'{method}-{dataset}-{seed}-{net}.pt')
+        # net = 'GCN'
+        # output_file =  os.path.join(output_path, f'{method}-{dataset}-{seed}-{net}.pt')
 
-        command = f"python src/main.py --output {output_file} " + config_args(method=method, dataset=dataset, seed=seed) + " " + options + options_more + output + cache_file
+        command = f"python src/main.py " + config_args(method=method, dataset=dataset, seed=seed) + " " + options + options_more + output + cache_file
 
         print('\n')
         print(command)
 
-        begin_datetime = datetime.datetime.now()
+        # begin_datetime = datetime.datetime.now()
         os.system(command)
-        end_datetime = datetime.datetime.now()
+        # end_datetime = datetime.datetime.now()
 
         with open(cache_file) as f:
             info = f.read()
-            match = re.match('[\\S\\s]*acc: ([\\d\\.]*), bacc: ([\\d\\.]*), f1: ([\\d\\.]*), auc: ([\\d\\.]*)\n', info)
+            match = re.match('[\\S\\s]*result: ([\\S\\s]*)\n', info)
             if match is not None:
-                acc, bacc, f1, auc = tuple(map(lambda x: float(x), match.groups()))
-                record = dict()
-                record['begin_datetime'] = begin_datetime.__str__()
-                record['end_datetime'] = end_datetime.__str__()
-                record['time_erased'] = (end_datetime - begin_datetime).__str__()
-                record['method'] = method
-                record['dataset'] = dataset
-                record['seed'] = seed
-                record['acc'] = acc
-                record['bacc'] = bacc
-                record['f1'] = f1
-                record['auc'] = auc
+                record = json.loads(match.groups()[0])
                 print(record)
                 records.append(record)
+                
+            # Obsolete
+            # match = re.match('[\\S\\s]*acc: ([\\d\\.]*), bacc: ([\\d\\.]*), f1: ([\\d\\.]*), auc: ([\\d\\.]*)\n', info)
+            # if match is not None:
+            #     acc, bacc, f1, auc = tuple(map(lambda x: float(x), match.groups()))
+            #     record = dict()
+            #     record['begin_datetime'] = begin_datetime.__str__()
+            #     record['end_datetime'] = end_datetime.__str__()
+            #     record['time_erased'] = (end_datetime - begin_datetime).__str__()
+            #     record['method'] = method
+            #     record['dataset'] = dataset
+            #     record['seed'] = seed
+            #     record['acc'] = acc
+            #     record['bacc'] = bacc
+            #     record['f1'] = f1
+            #     record['auc'] = auc
+            #     print(record)
+            #     records.append(record)
 
         if not args.debug:
             os.system("rm " + cache_file)

@@ -1,5 +1,7 @@
 import os
 import os.path as osp
+import datetime
+import json
 import tqdm
 import random
 import numpy as np
@@ -413,6 +415,23 @@ for i in range(n_cls):
     assert idx_info[i].shape[0] == class_num_list[i]
 
 
+def save_tensor(tensor):
+    tensor_dir = 'tensor/'
+    if not os.path.isdir(tensor_dir):
+        os.mkdir(tensor_dir)
+    tensor_file = f'{str(datetime.datetime.now())}-{args.method}-{args.dataset}-{args.seed}' + '.pt'
+    tensor_path = os.path.join(tensor_dir, tensor_file)
+    while os.path.isfile(tensor_path):
+        tensor_file = f'{str(datetime.datetime.now())}-{args.method}-{args.dataset(lt=args.imb_ratio)}-{args.seed}' + '.pt'
+        tensor_path = os.path.join(tensor_dir, tensor_file)
+    torch.save(tensor, tensor_path)
+    return tensor_path
+
+
+yyy = save_tensor(data.y)
+original_num = train_node_mask.sum().item()
+
+
 if args.method == 'smote':
     data = src_smote(data, data_train_mask)
     data_train_mask = torch.cat((data_train_mask, torch.ones(data.x.shape[0] - data_train_mask.shape[0], dtype=torch.bool, device=data_train_mask.device)), 0)
@@ -480,6 +499,10 @@ scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', fa
 
 best_val_acc_f1 = 0
 saliency, prev_out = None, None
+
+
+# Train
+begin_datetime = datetime.datetime.now()
 
 if args.method in ['imgagn', 'drgcn']:
     ratio_generated = 1.
@@ -728,4 +751,46 @@ else:
             test_f1 = f1s[2]
             test_auc = aucs[2]
 
-print('acc: {:.9f}, bacc: {:.9f}, f1: {:.9f}, auc: {:.9f}'.format(test_acc*100, test_bacc*100, test_f1*100, test_auc*100))
+model.eval()
+if args.method == 'imgagn':
+    logits, _ = model(data.x, data.edge_index[:,train_edge_mask])
+else:
+    logits = model(data.x, data.edge_index[:,train_edge_mask])
+
+if args.method in ['drgcn', 'smote']:
+    output = save_tensor(logits[:original_num])
+else:
+    output = save_tensor(logits)
+
+end_datetime = datetime.datetime.now()
+
+# if args.output is not None:
+#     torch.save(output, args.output)
+
+hyperparameter = dict()
+for arg in vars(args):
+    if arg not in ['method', 'dataset', 'imb_ratio', 'seed', 'net', 'device', 'debug', 'output', 'data_path', 'n_head']:
+        hyperparameter[arg] = getattr(args, arg)
+
+result = {
+    'begin_datetime': str(begin_datetime),
+    'end_datetime': str(end_datetime),
+    'time_erased': str(end_datetime - begin_datetime),
+    'max_memory_allocated': torch.cuda.max_memory_allocated(device=device),
+    'method': args.method,
+    'dataset': args.dataset,
+    'imb_ratio': args.imb_ratio,
+    'seed': args.seed,
+    'device': str(device),
+    'backbone': args.net,
+    'hyperparameter': hyperparameter,
+    'acc': test_acc*100,
+    'bacc': test_bacc*100,
+    'f1': test_f1*100,
+    'auc': test_auc*100,
+    'y': yyy,
+    'output': output,
+}
+
+result = json.dumps(result, indent=4)
+print(f'result: {result}')

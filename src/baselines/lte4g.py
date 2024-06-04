@@ -153,6 +153,10 @@ class EarlyStopper:
 
 
 class lte4g(Baseline):
+    def parse_args(parser):
+        Baseline.add_argument(parser, "--tau", type=float, default=1, help="")
+
+
     def predict_ht(self, model):
         embed = model(x=self.data.x, y=self.data.y, edge_index=self.data.edge_index, phase='embed')
         output = model(x=self.data.x, y=self.data.y, edge_index=self.data.edge_index, logit=True, phase='og')

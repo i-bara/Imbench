@@ -3,6 +3,7 @@ import torch
 import torch.nn.functional as F
 import random
 import os
+import json
 import argparse
 import datetime
 from data_utils import get_dataset, get_longtail_split
@@ -254,12 +255,61 @@ class Baseline:
 
         self.timer = Timer(self)
 
+        self.y = self.save_tensor(self.data.y)
+        self._n_sample_ori = self.n_sample
+
+
+    def save_tensor(self, tensor):
+        tensor_dir = 'tensor/'
+        if not os.path.isdir(tensor_dir):
+            os.mkdir(tensor_dir)
+        tensor_file = f'{str(datetime.datetime.now())}-{self.args.method}-{self.args.dataset}-{self.args.seed}.pt'
+        tensor_path = os.path.join(tensor_dir, tensor_file)
+        while os.path.isfile(tensor_path):
+            tensor_file = f'{str(datetime.datetime.now())}-{self.args.method}-{self.args.dataset(lt=self.args.imb_ratio)}-{self.args.seed}.pt'
+            tensor_path = os.path.join(tensor_dir, tensor_file)
+        torch.save(tensor, tensor_path)
+        return tensor_path
+
 
     def run(self):
+        # Train
+        begin_datetime = datetime.datetime.now()
         output = self.train()
-        if self.args.output is not None:
-            torch.save(output, self.args.output)
-        print('acc: {:.9f}, bacc: {:.9f}, f1: {:.9f}, auc: {:.9f}'.format(self.test_acc*100, self.test_bacc*100, self.test_f1*100, self.test_auc*100))
+        output = self.save_tensor(output[:self._n_sample_ori])
+
+        end_datetime = datetime.datetime.now()
+
+        # if self.args.output is not None:
+        #     torch.save(output, self.args.output)
+
+        hyperparameter = dict()
+        for arg in vars(self.args):
+            if arg not in ['method', 'dataset', 'imb_ratio', 'seed', 'net', 'device', 'debug', 'output', 'data_path', 'n_head']:
+                hyperparameter[arg] = getattr(self.args, arg)
+
+        result = {
+            'begin_datetime': str(begin_datetime),
+            'end_datetime': str(end_datetime),
+            'time_erased': str(end_datetime - begin_datetime),
+            'max_memory_allocated': torch.cuda.max_memory_allocated(device=self.device),
+            'method': self.args.method,
+            'dataset': self.args.dataset,
+            'imb_ratio': self.args.imb_ratio,
+            'seed': self.args.seed,
+            'device': str(self.device),
+            'backbone': self.args.net,
+            'hyperparameter': hyperparameter,
+            'acc': self.test_acc*100,
+            'bacc': self.test_bacc*100,
+            'f1': self.test_f1*100,
+            'auc': self.test_auc*100,
+            'y': self.y,
+            'output': output,
+        }
+
+        result = json.dumps(result, indent=4)
+        print(f'result: {result}')
 
 
     def train(self):
