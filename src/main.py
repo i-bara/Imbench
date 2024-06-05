@@ -428,6 +428,9 @@ def save_tensor(tensor):
     return tensor_path
 
 
+_train = save_tensor(data_train_mask)
+_val = save_tensor(data_val_mask)
+_test = save_tensor(data_test_mask)
 yyy = save_tensor(data.y)
 original_num = train_node_mask.sum().item()
 
@@ -788,6 +791,9 @@ result = {
     'bacc': test_bacc*100,
     'f1': test_f1*100,
     'auc': test_auc*100,
+    'train': _train,
+    'val': _val,
+    'test': _test,
     'y': yyy,
     'output': output,
 }

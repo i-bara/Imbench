@@ -255,6 +255,9 @@ class Baseline:
 
         self.timer = Timer(self)
 
+        self._train = self.save_tensor(self.mask('train'))
+        self._val = self.save_tensor(self.mask('val'))
+        self._test = self.save_tensor(self.mask('test'))
         self.y = self.save_tensor(self.data.y)
         self._n_sample_ori = self.n_sample
 
@@ -304,6 +307,9 @@ class Baseline:
             'bacc': self.test_bacc*100,
             'f1': self.test_f1*100,
             'auc': self.test_auc*100,
+            'train': self._train,
+            'val': self._val,
+            'test': self._test,
             'y': self.y,
             'output': output,
         }
