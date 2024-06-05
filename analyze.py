@@ -32,7 +32,7 @@ if __name__ == '__main__':
     workbook = openpyxl.load_workbook(filename=filename)
     ws4 = workbook["Node-level class imbalance "]
 
-    l = ["vanilla", "drgcn", "dpgnn", "imgagn", "smote", "ens", "mixup", "lte4g", "tam", "topoauc", "sha"]
+    l = ["vanilla", "drgcn", "dpgnn", "imgagn", "smote", "ens", "mixup", "lte4g", "tam", "topoauc", "sha", "renode"]
     l_dict = {y: x + 1 for x, y in enumerate(l)}
     d = [('Cora', 20.0), ('Actor', 20.0), ('ogbn-arxiv', 20.0)]
     d_dict = {y: x + 1 for x, y in enumerate(d)}
@@ -46,8 +46,8 @@ if __name__ == '__main__':
         if record['dataset'] == 'Cora' and record['imb_ratio'] == 20.0:
             # shutil.copyfile(record['output'], os.path.join(analyze_dir, f'{record['method']}_{output}'))
 
-            output = torch.load(record['output']).cpu().detach().numpy()
-            y = torch.load(record['y']).cpu().detach().numpy()
+            output = torch.load(record['output'])[torch.load(record['test'])].cpu().detach().numpy()
+            y = torch.load(record['y'])[torch.load(record['test'])].cpu().detach().numpy()
 
             output_dict = dict()
             for i in range(output.shape[1]):
@@ -60,6 +60,9 @@ if __name__ == '__main__':
             # print(f'{record['method']}: {output.shape}, {y.shape}')
             score = silhouette_score(output, y)
             ws4.cell(row=l_dict[record['method']], column=1).value = '%3f' % score
+            ws4.cell(row=l_dict[record['method']], column=2).value = '%3f' % record['f1']
+            print(output)
+            print(record['method'], score)
 
         t = datetime.datetime.strptime(record['time_erased'], "%H:%M:%S.%f")
         delta = datetime.timedelta(hours=t.hour, minutes=t.minute, seconds=t.second, microseconds=t.microsecond)
