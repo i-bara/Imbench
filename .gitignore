@@ -3,3 +3,9 @@ old_log/
 wrong/
 __pycache__/
 cache
+benchmark/
+records/
+datasets/
+tensor/
+analyze/
+*.xlsx
