@@ -92,8 +92,16 @@ class Model(nn.Module):
 
             if logit:
                 output = torch.zeros((x.shape[0], y.max().item() + 1), dtype=torch.float32, device=x.device)
-                output[mask_head_degree][:, cls_mask] = out_head_student
-                output[mask_tail_degree][:, cls_mask] = out_tail_student
+
+                _mask = torch.ones((mask_head_degree.shape[0], cls_mask.shape[0]), dtype=torch.bool, device=x.device)
+                _mask[torch.logical_not(mask_head_degree), :] = False
+                _mask[:, torch.logical_not(cls_mask)] = False
+                output[_mask] = out_head_student.view(-1)
+
+                _mask = torch.ones((mask_tail_degree.shape[0], cls_mask.shape[0]), dtype=torch.bool, device=x.device)
+                _mask[torch.logical_not(mask_tail_degree), :] = False
+                _mask[:, torch.logical_not(cls_mask)] = False
+                output[_mask] = out_tail_student.view(-1)
                 return output
 
             kd_head = F.kl_div(F.log_softmax(out_head_student / self.args.tau, dim=1), F.softmax(out_head_teacher / self.args.tau, dim=1), reduction='mean') * self.args.tau * self.args.tau
@@ -389,6 +397,9 @@ class lte4g(Baseline):
 
         # ======================================= Inference Phase =======================================
 
+        mask_dict = {'HH': self.mask('HH'), 'HT': self.mask('HT'),
+                     'TH': self.mask('TH'), 'TT': self.mask('TT')}
+
         output = torch.zeros((self.data.x.shape[0], self.n_cls), dtype=torch.float32, device=self.device)
 
         for sep in ['H', 'T']:
@@ -397,8 +408,14 @@ class lte4g(Baseline):
             classifier.eval()
             output_sep = model(x=self.data.x, y=self.data.y, edge_index=self.data.edge_index, mask=mask_dict, logit=True, phase='student', 
                                classifier=classifier, sep=sep, cls_mask=self.cls_masks[sep], teacher=classifier_dict)
-            
-            output[self.masks[sep + '_predicted']][:, self.cls_masks[sep]] = output_sep[self.masks[sep + '_predicted']][:, self.cls_masks[sep]]  # , self.sep[sep]
+
+            mask = torch.ones((self.data.x.shape[0], self.n_cls), dtype=torch.bool, device=self.device)
+            mask[torch.logical_not(self.masks[sep + '_predicted']), :] = False
+            mask[:, torch.logical_not(self.cls_masks[sep])] = False
+
+            # self.debug_all(output_sep)
+            output[mask] = output_sep[mask]  # , self.sep[sep]
+            # output[self.masks[sep + '_predicted'], self.cls_masks[sep]] = output_sep[self.masks[sep + '_predicted']][:, self.cls_masks[sep]]
 
         self.test(output)
 
