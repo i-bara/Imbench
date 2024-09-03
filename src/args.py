@@ -11,6 +11,8 @@ from baselines.dpgnn import dpgnn
 from baselines.ens import ens
 from baselines.sha import sha
 from baselines.tam import tam
+from baselines.igraphmix import igraphmix
+from baselines.upsample import upsample
 
 
 baseline_dict = {
@@ -25,6 +27,8 @@ baseline_dict = {
     'ens': ens,
     'sha': sha,
     'tam': tam,
+    'igraphmix': igraphmix,
+    'upsample': upsample,
 }
 
 
@@ -32,7 +36,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     # Method
-    parser.add_argument('--method', type=str, choices=['vanilla', 'drgcn', 'smote', 'imgagn', 'lte4g', 'dpgnn', 'mixup', 'ens', 'tam', 'topoauc', 'sha', 'renode', 'pastel', 'hyperimba'], default='vanilla', help='the method used to train')
+    parser.add_argument('--method', type=str, choices=['vanilla', 'drgcn', 'smote', 'imgagn', 'lte4g', 'dpgnn', 'mixup', 'ens', 'tam', 'topoauc', 'sha', 'renode', 'pastel', 'hyperimba', 'igraphmix', 'upsample'], default='vanilla', help='the method used to train')
 
     # Device
     parser.add_argument('--device', type=str, default='cuda:0', help='device')

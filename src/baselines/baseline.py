@@ -103,6 +103,7 @@ class Baseline:
         if keys is not None:
             if type(keys) not in [list, torch.Tensor]:
                 keys = [keys]
+            print(self.data.y.shape[0])
             mask = torch.zeros(self.data.y.shape[0], dtype=bool, device=self.device)
             for i in keys:
                 if type(i) in [int, torch.Tensor]:
@@ -153,11 +154,21 @@ class Baseline:
         return inv_idx
     
 
-    def num(self, keys=None, **kwargs):
+    def inv2(self, idx):
+        inv_idx = -torch.ones(idx.shape, dtype=idx.dtype, device=idx.device)
+        for i in range(len(idx)):
+            inv_idx[idx[i].item()] = i
+        return inv_idx
+    
+
+    def num(self, keys=None, mask=None, **kwargs):
         if keys is not None:
             if type(keys) == torch.Tensor and keys.dtype == torch.bool:
                 return keys.sum().item()
             return self.mask(keys=keys).sum().item()
+
+        if mask is not None:
+            return mask.sum().item()
 
         return self.mask(**kwargs).sum().item()
     

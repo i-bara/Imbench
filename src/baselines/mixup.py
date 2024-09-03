@@ -26,6 +26,22 @@ class mixup(gnn):
             self.masks_original[name] = mask.clone().detach()
 
 
+    def scale(self, avg_number, idx_num):
+        if self.args.up_scale == 0:
+            up_scale = int(avg_number / idx_num + self.args.scale) - 1
+            if up_scale >= 0:
+                up_scale_rest = avg_number / idx_num + self.args.scale - 1 - up_scale
+            else:
+                up_scale = 0
+                up_scale_rest = 0
+            # print(round(scale, 2), round(c_up_scale, 2), round(up_scale_rest, 2))
+        else:
+            up_scale = int(self.args.up_scale)
+            up_scale_rest = self.args.up_scale - up_scale
+
+        return up_scale, up_scale_rest
+
+
     def mixup(self, x, edge_index, y):
         im_class_num = int(self.args.im_class_ratio * self.n_cls)
 
@@ -41,18 +57,8 @@ class mixup(gnn):
             idx = idx_train[(y == c)[idx_train]]
             idx_num = idx.shape[0]
             
-            if self.args.up_scale == 0:
-                c_up_scale = int(avg_number / idx_num + self.args.scale) - 1
-                if c_up_scale >= 0:
-                    up_scale_rest = avg_number / idx_num + self.args.scale - 1 - c_up_scale
-                else:
-                    c_up_scale = 0
-                    up_scale_rest = 0
-                # print(round(scale, 2), round(c_up_scale, 2), round(up_scale_rest, 2))
-            else:
-                c_up_scale = int(self.args.up_scale)
-                up_scale_rest = self.args.up_scale - c_up_scale
-
+            c_up_scale, up_scale_rest = self.scale(avg_number=avg_number, idx_num=idx_num)
+            
             for j in range(c_up_scale):
 
                 chosen_embed = x[idx, :]
@@ -93,24 +99,32 @@ class mixup(gnn):
         return x, edge_index, y
 
 
-    def epoch_loss(self, epoch, mode='test'):
-        embed = self.model(x=self.data.x, edge_index=self.data.edge_index, y=self.data_original.y, logit=True, phase='embed', **self.forward_kwargs)
-
+    def load(self):
         self.data = self.data_original.clone().detach()
         self.masks = dict()
         for name, mask in self.masks_original.items():
             self.masks[name] = mask.clone().detach()
 
-        # embed, edge_index, y = embed, self.data.edge_index, self.data_original.y
-        embed, edge_index, y = self.mixup(embed, self.data.edge_index, self.data_original.y)
-
+    
+    def store(self, y):
         self.data.y = y
-        n_sample = embed.shape[0]
+        n_sample = y.shape[0]
         for name, mask in self.masks_original.items():
             if name == 'train':
                 self.masks[name] = torch.cat((mask, torch.ones(n_sample - self.n_sample, dtype=torch.bool, device=self.device)), dim=0)
             else:
                 self.masks[name] = torch.cat((mask, torch.zeros(n_sample - self.n_sample, dtype=torch.bool, device=self.device)), dim=0)
+
+
+    def epoch_loss(self, epoch, mode='test'):
+        embed = self.model(x=self.data.x, edge_index=self.data.edge_index, y=self.data_original.y, logit=True, phase='embed', **self.forward_kwargs)
+
+        self.load()
+
+        # embed, edge_index, y = embed, self.data.edge_index, self.data_original.y
+        embed, edge_index, y = self.mixup(embed, self.data.edge_index, self.data_original.y)
+
+        self.store(y)
 
         if mode == 'test':
             return self.model(x=embed, edge_index=edge_index, y=y, logit=True, **self.forward_kwargs)

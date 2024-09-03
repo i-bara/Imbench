@@ -22,7 +22,7 @@ def parse_args():
 args = parse_args()
 
 all_config = dict()
-all_config['methods'] = ['vanilla', 'drgcn', 'smote', 'imgagn', 'dpgnn', 'mixup', 'ens', 'tam', 'lte4g', 'sann', 'topoauc', 'sha', 'renode', 'pastel', 'hyperimba']
+all_config['methods'] = ['vanilla', 'drgcn', 'smote', 'imgagn', 'dpgnn', 'mixup', 'ens', 'tam', 'lte4g', 'sann', 'topoauc', 'sha', 'renode', 'pastel', 'hyperimba', 'igraphmix']
 all_config['datasets'] = ['Cora_100', 'Cora_20', 'Cora_1', 
                           'CiteSeer_100', 'CiteSeer_20', 'CiteSeer_1', 
                           'PubMed_100', 'PubMed_20', 'PubMed_1', 
@@ -81,7 +81,7 @@ def experiment(method, dataset, seed, options, records, records_file, cache_file
     done = False
     for record in records:
         # if record['method'] == method and record['dataset'] == dataset and record['seed'] == seed:
-        if record['method'] == method and f'{record['dataset']}_{str(int(float(record['imb_ratio'])))}' == dataset and record['seed'] == seed:
+        if record['method'] == method and f"{record['dataset']}_{str(int(float(record['imb_ratio'])))}" == dataset and record['seed'] == seed:
             done = True
     
     if done:

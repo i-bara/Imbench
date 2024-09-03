@@ -1,5 +1,5 @@
 {
-    "methods": ["sha"],
-    "datasets": "chameleon_1",
-    "seeds": [100]
+    "methods": ["vanilla", "igraphmix"],
+    "datasets": ["Cora_100", "Cora_1", "CiteSeer_100", "CiteSeer_1", "chameleon_100", "chameleon_1"],
+    "seeds": "all"
 }

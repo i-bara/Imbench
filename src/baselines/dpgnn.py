@@ -91,10 +91,6 @@ class dpgnn(gnn):
     def __init__(self, args):
         super().__init__(args)
         self.use(DpgnnModel)
-        self.data_original = self.data.clone().detach()
-        self.masks_original = dict()
-        for name, mask in self.masks.items():
-            self.masks_original[name] = mask.clone().detach()
 
     
     def episodic_generator(self):
@@ -104,6 +100,10 @@ class dpgnn(gnn):
             mask = self.mask('train') & self.mask(c)
             idx = self.idx(mask=mask)
             num = self.num(mask=mask)
+            # print(idx)
+            # print(idx.shape)
+            # print(num)
+            # exit()
 
             sample_idx = idx[torch.randperm(idx.size(0))[:int(num * self.args.episodic_samp)]]
 
@@ -162,8 +162,8 @@ class DistEncoder(torch.nn.Module):
         super(DistEncoder, self).__init__()
         self.lin = nn.Linear(n_hid * n_cls, n_cls)
 
-        self.reg_params = list(self.lin.parameters())
-        self.non_reg_params = list()
+        self.reg_params = list()
+        self.non_reg_params = list(self.lin.parameters())
 
 
     def forward(self, query, proto):
