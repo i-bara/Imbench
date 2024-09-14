@@ -251,8 +251,8 @@ if __name__ == '__main__':
                             config[config_option] = [config[config_option]]
                         elif config[config_option] == 'all':  # 'all'
                             config[config_option] = all_config[config_option]
-                        else:
-                            raise NotImplementedError
+                        # else:
+                        #     raise NotImplementedError
                     elif len(config[config_option]) == 0:  # If it is an empty list, equivalent to 'all'
                         config[config_option] = all_config[config_option]
                 benchmark(name=name, methods=config['methods'], datasets=config['datasets'], seeds=config['seeds'])

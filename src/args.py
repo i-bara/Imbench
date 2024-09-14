@@ -13,6 +13,7 @@ from baselines.sha import sha
 from baselines.tam import tam
 from baselines.igraphmix import igraphmix
 from baselines.upsample import upsample
+from baselines.mix import mix
 
 
 baseline_dict = {
@@ -29,6 +30,7 @@ baseline_dict = {
     'tam': tam,
     'igraphmix': igraphmix,
     'upsample': upsample,
+    'mix': mix,
 }
 
 
@@ -36,7 +38,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     # Method
-    parser.add_argument('--method', type=str, choices=['vanilla', 'drgcn', 'smote', 'imgagn', 'lte4g', 'dpgnn', 'mixup', 'ens', 'tam', 'topoauc', 'sha', 'renode', 'pastel', 'hyperimba', 'igraphmix', 'upsample'], default='vanilla', help='the method used to train')
+    parser.add_argument('--method', type=str, choices=['vanilla', 'drgcn', 'smote', 'imgagn', 'lte4g', 'dpgnn', 'mixup', 'ens', 'tam', 'topoauc', 'sha', 'renode', 'pastel', 'hyperimba', 'igraphmix', 'upsample', 'mix'], default='vanilla', help='the method used to train')
 
     # Device
     parser.add_argument('--device', type=str, default='cuda:0', help='device')
