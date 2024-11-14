@@ -244,7 +244,14 @@ def neighbor_sampling_ens(total_node, edge_index, sampling_src_idx, sampling_dst
             ratio = F.softmax(torch.cat([dist_kl.new_zeros(dist_kl.size(0), 1), -dist_kl], dim=1), dim=1)
             
             # Process src nodes' distribution
-            mixed_neighbor_dist = torch.stack([neighbor_dist_list[idx].to_dense() for idx in sampling_src_idx]) * ratio[:, :1]
+            print('gggggggggg')
+            
+            if len(sampling_src_idx) == 0:
+                a = neighbor_dist_list[0].to_dense()
+                mixed_neighbor_dist = torch.zeros((0,) + a.shape, dtype=a.dtype, device=a.device)
+            else:
+                mixed_neighbor_dist = torch.stack([neighbor_dist_list[idx].to_dense() for idx in sampling_src_idx]) * ratio[:, :1]
+            print(mixed_neighbor_dist.shape)
             
             # Process dst nodes' distribution inside the loop without changing the original sampling_dst_idx tensor
             for i in range(n_candidate):
@@ -253,7 +260,11 @@ def neighbor_sampling_ens(total_node, edge_index, sampling_src_idx, sampling_dst
                 else:
                     current_dst_idx = sampling_dst_idx
 
-                dst_dist = torch.stack([neighbor_dist_list[idx].to_dense() for idx in current_dst_idx[:, i]])
+                if len(current_dst_idx[:, i]) == 0:
+                    a = neighbor_dist_list[0].to_dense()
+                    dst_dist = torch.zeros((0,) + a.shape, dtype=a.dtype, device=a.device)
+                else:
+                    dst_dist = torch.stack([neighbor_dist_list[idx].to_dense() for idx in current_dst_idx[:, i]])
                 mixed_neighbor_dist += dst_dist * ratio[:, i+1:i+2]
         else:
             # Handle the case where prev_out is not available
@@ -275,7 +286,11 @@ def neighbor_sampling_ens(total_node, edge_index, sampling_src_idx, sampling_dst
         # prob = degree_dist.unsqueeze(dim=0).repeat(len(sampling_src_idx), 1)
         # aug_degree = torch.multinomial(prob, 1).squeeze(dim=1)
         prob = degree_dist.unsqueeze(dim=0)
-        aug_degree = torch.multinomial(prob, len(sampling_src_idx), replacement=True).squeeze(dim=0)
+        # print(torch.multinomial(torch.tensor([0, 10, 3, 0], dtype=torch.float), 2, replacement=True).squeeze(dim=0).shape)
+        if len(sampling_src_idx) == 0:
+            aug_degree = torch.zeros((len(sampling_src_idx),), dtype=torch.int64, device=prob.device)
+        else:
+            aug_degree = torch.multinomial(prob, len(sampling_src_idx), replacement=True).squeeze(dim=0)
         max_degree = degree.max().item() + 1
         new_tgt = torch.multinomial(mixed_neighbor_dist, max_degree, replacement=True)
         new_col = new_tgt[(torch.arange(max_degree, device=device) - aug_degree.unsqueeze(dim=1) < 0)]
