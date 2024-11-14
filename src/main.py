@@ -770,6 +770,14 @@ end_datetime = datetime.datetime.now()
 # if args.output is not None:
 #     torch.save(output, args.output)
 
+for attr, obj in list(globals().items()):
+    if isinstance(obj, torch.nn.Module):
+        print("save baseline.%s = %r" % (attr, obj))
+        PATH = 'saved_model'
+        if not os.path.isdir(PATH):
+            os.mkdir(PATH)
+        torch.save(obj.state_dict(), os.path.join(PATH, f'{attr}.pt'))
+
 hyperparameter = dict()
 for arg in vars(args):
     if arg not in ['method', 'dataset', 'imb_ratio', 'seed', 'net', 'device', 'debug', 'output', 'data_path', 'n_head']:
