@@ -94,7 +94,7 @@ class ens(gnn):
         sampling_src_idx, sampling_dst_idx = sampling_idx_individual_dst(self.class_num_list, self.idx_info, self.device)
         beta = torch.distributions.beta.Beta(2, 2)
         lam = beta.sample((len(sampling_src_idx),) ).unsqueeze(1)
-        ori_saliency = self.saliency[:self.n_sample] if (self.saliency != None) else None
+        ori_saliency = self.saliency[:self.n_sample] if (self.saliency is not None) else None
 
         # Augment nodes
         if epoch > self.args.warmup:
@@ -103,7 +103,7 @@ class ens(gnn):
                 self.prev_out = F.softmax(self.prev_out / self.args.tau, dim=1).detach().clone()
             new_edge_index, dist_kl = neighbor_sampling_ens(self.n_sample, edge_index, sampling_src_idx, sampling_dst_idx, 
                                                             self.Pi, self.prev_out, self.train_node_mask,
-                                                            iterations=True)
+                                                            iterations=False)
             new_x = saliency_mixup_ens(x, sampling_src_idx, sampling_dst_idx, lam, ori_saliency, dist_kl = dist_kl, keep_prob=self.args.keep_prob)
         else:
             new_edge_index = duplicate_neighbor(self.n_sample, edge_index, sampling_src_idx)

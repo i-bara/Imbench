@@ -1,4 +1,4 @@
-from .gnn import gnn
+from .gnnv3 import gnn
 import torch
 
 

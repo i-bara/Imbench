@@ -1,3 +1,4 @@
+import wandb
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -9,6 +10,11 @@ import datetime
 from data_utils import get_dataset, get_longtail_split
 from sklearn.metrics import balanced_accuracy_score, f1_score, roc_auc_score
 
+
+wandb.login()
+
+USE_WANDB = True
+RUN_NAME = 'a'
 
 class Timer:
     def __init__(self, baseline) -> None:
@@ -203,7 +209,9 @@ class Baseline:
         data_ = dataset[0]
         self.n_cls = data_.y.max().item() + 1
         self.n_sample = data_.x.shape[0]
+        self.n_node = self.n_sample
         self.n_feat = data_.x.shape[1]
+        self.n_edge = data_.edge_index.shape[1]
         self.data = data_.to(self.device)
 
         self.debug(args.dataset)
@@ -287,6 +295,38 @@ class Baseline:
 
 
     def run(self):
+        hyperparameter = dict()
+        for arg in vars(self.args):
+            if arg not in ['method', 'dataset', 'imb_ratio', 'seed', 'net', 'device', 'debug', 'output', 'data_path', 'n_head']:
+                hyperparameter[arg] = getattr(self.args, arg)
+
+        config = {
+            'method': self.args.method,
+            'dataset': self.args.dataset,
+            'imb_ratio': self.args.imb_ratio,
+            'seed': self.args.seed,
+            'device': str(self.device),
+            'backbone': self.args.net,
+            'hyperparameter': hyperparameter,
+        }
+
+        if USE_WANDB:
+            if RUN_NAME is not None:
+                run = wandb.init(
+                    # Set the project where this run will be logged
+                    project="imbench",
+                    name=RUN_NAME,
+                    # Track hyperparameters and run metadata
+                    config=config,
+                )
+            else:
+                run = wandb.init(
+                    # Set the project where this run will be logged
+                    project="imbench",
+                    # Track hyperparameters and run metadata
+                    config=config,
+                )
+
         # Train
         begin_datetime = datetime.datetime.now()
         output = self.train()
@@ -297,23 +337,14 @@ class Baseline:
         # if self.args.output is not None:
         #     torch.save(output, self.args.output)
 
-        hyperparameter = dict()
-        for arg in vars(self.args):
-            if arg not in ['method', 'dataset', 'imb_ratio', 'seed', 'net', 'device', 'debug', 'output', 'data_path', 'n_head']:
-                hyperparameter[arg] = getattr(self.args, arg)
-
-        result = {
+        system = {
             'begin_datetime': str(begin_datetime),
             'end_datetime': str(end_datetime),
             'time_erased': str(end_datetime - begin_datetime),
             'max_memory_allocated': torch.cuda.max_memory_allocated(device=self.device),
-            'method': self.args.method,
-            'dataset': self.args.dataset,
-            'imb_ratio': self.args.imb_ratio,
-            'seed': self.args.seed,
-            'device': str(self.device),
-            'backbone': self.args.net,
-            'hyperparameter': hyperparameter,
+        }
+
+        perf = {
             'acc': self.test_acc*100,
             'bacc': self.test_bacc*100,
             'f1': self.test_f1*100,
@@ -324,9 +355,13 @@ class Baseline:
             'y': self.y,
             'output': output,
         }
+        
+        result = system | config | perf
 
         result = json.dumps(result, indent=4)
         print(f'result: {result}')
+        
+        wandb.finish()
 
 
     def train(self):
@@ -338,15 +373,25 @@ class Baseline:
             mask = self.mask()
         mask &= self.mask(**kwargs)
         
+        perf_train = self.perf(logits=logits, mask=mask & self.mask(set='train'))
         perf_val = self.perf(logits=logits, mask=mask & self.mask(set='val'))
         perf_test = self.perf(logits=logits, mask=mask & self.mask(set='test'))
+        if USE_WANDB:
+            for mode, perf in zip(['train', 'val', 'test'], [perf_train, perf_val, perf_test]):
+                log = dict()
+                for score in perf:
+                    log[mode + '_' + score] = perf[score]
+                wandb.log(log)
         score = self.score_func(perf_val)
         if self.best_score < score:
             self.best_score = score
             self.test_acc = perf_test['acc']
             self.test_bacc = perf_test['bacc']
             self.test_f1 = perf_test['f1']
-            self.test_auc = perf_test['auc']
+            try:
+                self.test_auc = perf_test['auc']
+            except KeyError:
+                pass
 
 
     @torch.no_grad()
@@ -357,6 +402,7 @@ class Baseline:
 
         perf = dict()
 
+        print(logits.shape, mask.shape)
         pred = logits[mask].max(1)[1]
         y_pred = pred.cpu().numpy()
         y_true = self.data.y[mask].cpu().numpy()

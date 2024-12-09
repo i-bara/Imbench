@@ -40,7 +40,7 @@ class GAUCLoss(nn.Module):
         nn.init.uniform_(self.linear_inter.weight, a=0.0, b=1.0)
         nn.init.uniform_(self.linear_global.weight, a=0.0, b=1.0)
 
-    def forward(self, pred, target, mask, w_values_dict):
+    def forward(self, pred, target, mask, w_values_dict=None):
         Y = torch.stack([target.eq(i).float() for i in range(self.num_classes)], dim=1).squeeze()
         N = Y.sum(0)  # [classes, 1]
         loss = torch.tensor([0.]).to(self.device)
@@ -164,14 +164,14 @@ class GAUCLoss(nn.Module):
                         values_list.append(batch_values)
 
                     # 合并所有批次处理的结果
-                    values = np.concatenate(values_list)
+                    # values = np.concatenate(values_list)
 
-                    for cur_pos in range(len(values)):  # 注意这里改为迭代 values 的长度
-                        if pos_idx[cur_pos] not in w_values_dict.keys():
-                            w_values_dict[pos_idx[cur_pos]] = {}
-                        if neg_idx[cur_pos] not in w_values_dict[pos_idx[cur_pos]].keys():
-                            w_values_dict[pos_idx[cur_pos]][neg_idx[cur_pos]] = []
-                        w_values_dict[pos_idx[cur_pos]][neg_idx[cur_pos]].append(values[cur_pos])
+                    # for cur_pos in range(len(values)):  # 注意这里改为迭代 values 的长度
+                    #     if pos_idx[cur_pos] not in w_values_dict.keys():
+                    #         w_values_dict[pos_idx[cur_pos]] = {}
+                    #     if neg_idx[cur_pos] not in w_values_dict[pos_idx[cur_pos]].keys():
+                    #         w_values_dict[pos_idx[cur_pos]][neg_idx[cur_pos]] = []
+                    #     w_values_dict[pos_idx[cur_pos]][neg_idx[cur_pos]].append(values[cur_pos])
 
                     loss += ij_loss
                 
@@ -299,7 +299,7 @@ class ELossFN(nn.Module):
     def __init__(self, num_classes, num_nodes, adj_matrix, global_effect_matrix,
                  global_perclass_mean_effect_matrix, train_mask, device,
                  weight_sub_dim=64, weight_inter_dim=64, weight_global_dim=64,
-                 beta=0.5, gamma=1, is_ner_weight=True, loss_type='ExpGAUC',per=1e-3):
+                 beta=0.5, gamma=1, is_ner_weight=True, loss_type='ExpGAUC',per=0.8):
         super(ELossFN, self).__init__()
 
         self.num_classes = num_classes
@@ -357,9 +357,9 @@ class ELossFN(nn.Module):
 
     def nonzero_tuple(self, inp):
 
-        return tuple(inp.nonzero(as_tuple=True))   
+        return tuple(inp.nonzero(as_tuple=True))   #RuntimeError: nonzero is not supported for tensors with more than INT_MAX elements,   file a support request
     
-    def forward(self, preds, labels, mask, w_values_dict):
+    def forward(self, preds, labels, mask):
         mask_tensor = mask.clone().detach()
         mask_tensor = mask_tensor.bool()  # 转换为布尔型
 
@@ -373,7 +373,7 @@ class ELossFN(nn.Module):
         N = Y.sum(dim=0)
 
         # Calculate losses
-        loss = self.sceloss(preds, labels).item()
+        loss = self.sceloss(pred, label)
         #loss = torch.tensor([0.]).to(self.device)
         
         for i in range(self.num_classes):  
@@ -393,6 +393,12 @@ class ELossFN(nn.Module):
                     i_pred_neg_index = Y[:, j].nonzero(as_tuple=True)[0]
 
                     # Adjacency matrix operations
+                    # print(i_pred_pos.sum())
+                    # print(self.adj_matrix.shape, mask_tensor.shape, i_pred_pos_index.shape)
+                    # print(mask_tensor.sum())
+                    # print(self.adj_matrix.dtype, self.adj_self_matrix.dtype)
+                    # exit()
+                    # exit()
                     i_pred_pos_adj = self.adj_matrix[mask_tensor][i_pred_pos_index]
                     i_pred_neg_adj = self.adj_matrix[mask_tensor][i_pred_neg_index]
                     i_pred_neg_self_adj = self.adj_self_matrix[mask_tensor][i_pred_neg_index]
@@ -403,6 +409,9 @@ class ELossFN(nn.Module):
                     # Logical XOR and AND operations
                     sub_ner = torch.logical_xor(i_pred_pos_adj_expand, torch.logical_and(i_pred_pos_adj_expand, i_pred_neg_self_adj))
                     inter_ner = torch.logical_and(i_pred_pos_adj_expand, i_pred_neg_adj)
+
+                    # sub_ner_nonzero = torch.arange(sub_ner.shape[0], dtype=torch.long, device=sub_ner.device)[sub_ner]
+                    # inter_ner_nonzero = torch.arange(inter_ner.shape[0], dtype=torch.long, device=inter_ner.device)[inter_ner]
 
                     # Count nonzero elements
                     sub_ner_nonzero = self.nonzero_tuple(sub_ner)

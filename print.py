@@ -6,7 +6,7 @@ import pandas as pd
 from openpyxl import load_workbook
 import statistics
 
-method_list = ['vanilla', 'drgcn', 'smote', 'imgagn', 'ens', 'tam', 'lte4g', 'topoauc', 'sann', 'sha', 'renode', 'pastel', 'hyperimba']
+method_list = ['vanilla', 'drgcn', 'smote', 'imgagn', 'ens', 'tam', 'lte4g', 'topoauc', 'sann', 'sha', 'renode', 'pastel', 'hyperimba', 'bat']
 score_list = ['acc', 'bacc', 'f1', 'auc']
 dataset_list = ['Cora_100', 'Cora_20', 'Cora_1', 
                           'CiteSeer_100', 'CiteSeer_20', 'CiteSeer_1', 
@@ -48,6 +48,8 @@ def get_method_offset(method):
         return 12
     elif method == 'hyperimba':
         return 13
+    elif method == 'bat':
+        return 14
     else:
         raise NotImplementedError()
 
@@ -122,8 +124,12 @@ def get_dataset_offset(dataset):
         return (22, 22)
     elif dataset == 'Coauthor-CS':
         return (22, 14)
-    elif dataset == 'ogbn-arxiv':
+    elif dataset == 'ogbn-arxiv_100':
         return (22, 26)
+    elif dataset == 'ogbn-arxiv_20':
+        return (22, 30)
+    elif dataset == 'ogbn-arxiv_1':
+        return (22, 34)
     else:
         raise NotImplementedError()
     
@@ -131,17 +137,22 @@ records_file_list = [
     # ('Photo', True),
     # ('Computers', True),
     # ('CS', True),
-    ('vanilla', True),
-    ('drgcn', True),
-    ('smote', True),
-    ('imgagn', True),
-    ('ens', True),
-    ('tam', True),
-    ('sha', True),
-    ('vanilla_smote_a', True),
-    ('imgagn_ens_a', True),
-    ('tam_sha_a', True),
-    ('drgcn_a', True),
+    
+    # ('vanilla', True),
+    # ('drgcn', True),
+    # ('smote', True),
+    # ('imgagn', True),
+    # ('ens', True),
+    # ('tam', True),
+    # ('sha', True),
+    # ('vanilla_smote_a', True),
+    # ('imgagn_ens_a', True),
+    # ('tam_sha_a', True),
+    # ('drgcn_a', True),
+    ('bat', True),
+    ('bata', True),
+    ('bato', True)
+    
     # ('smote', True),
     # ('smote2', True),
     # ('ccp', False),
@@ -199,6 +210,7 @@ for method in method_list:
                 row += get_method_offset(method=method)
                 column += get_score_offset(score=score)
                 row += get_dataset_offset(dataset=dataset)[0]
+                print(dataset)
                 column += get_dataset_offset(dataset=dataset)[1]
                 ws4.cell(row=row, column=column).value = '%.3f (%.3f)' % (mean_score, stdev_score)
                 # ws4.cell(row=row, column=column).value = mean_score.__str__() + ' (' + stdev_score.__str__() + ')'

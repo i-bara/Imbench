@@ -21,6 +21,13 @@
         "Amazon": [
             "Amazon-Computers_100", "Amazon-Computers_20", "Amazon-Computers_1",
             "Amazon-Photo_100", "Amazon-Photo_20", "Amazon-Photo_1"
+        ],
+        "a": [
+            "Amazon-Computers_100", "Amazon-Computers_20", "Amazon-Computers_1",
+            "Amazon-Photo_100", "Amazon-Photo_20", "Amazon-Photo_1"
+        ],
+        "o": [
+            "ogbn-arxiv_100", "ogbn-arxiv_20", "ogbn-arxiv_1"
         ]
     },
     "seeds": {

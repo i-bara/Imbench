@@ -93,7 +93,7 @@ class IMB_LOSS:
             weights = weights.repeat(1,self.cls_num)
 
             pred = pred.softmax(dim = 1)
-            temp_loss = F.binary_cross_entropy(input = pred, target = labels_one_hot, weight = weights,reduction='none') 
+            temp_loss = F.binary_cross_entropy(input = pred, target = labels_one_hot, weight = weights,reduction='none')
             return torch.mean(temp_loss,dim=1)
 
         else:

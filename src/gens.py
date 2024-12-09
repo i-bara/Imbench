@@ -244,8 +244,6 @@ def neighbor_sampling_ens(total_node, edge_index, sampling_src_idx, sampling_dst
             ratio = F.softmax(torch.cat([dist_kl.new_zeros(dist_kl.size(0), 1), -dist_kl], dim=1), dim=1)
             
             # Process src nodes' distribution
-            print('gggggggggg')
-            
             if len(sampling_src_idx) == 0:
                 a = neighbor_dist_list[0].to_dense()
                 mixed_neighbor_dist = torch.zeros((0,) + a.shape, dtype=a.dtype, device=a.device)
@@ -314,6 +312,16 @@ def neighbor_sampling_ens(total_node, edge_index, sampling_src_idx, sampling_dst
         mixed_neighbor_dist = ratio[:,:1] * neighbor_dist_list[sampling_src_idx]
         for i in range(n_candidate):
             mixed_neighbor_dist += ratio[:,i+1:i+2] * neighbor_dist_list[sampling_dst_idx.unsqueeze(dim=1)[:,i]]
+        # assert torch.all(sampling_dst_idx.unsqueeze(dim=1)[:,i] == sampling_dst_idx)
+        # print(ratio[:5])
+        # print(neighbor_dist_list[sampling_src_idx][:5])
+        # print((neighbor_dist_list[sampling_src_idx] - mixed_neighbor_dist)[:5])
+        
+        # a = (ratio[:,:1] + ratio[:,1:2]) * neighbor_dist_list[sampling_src_idx]
+        # print(a[:5])
+        # assert torch.all((a - mixed_neighbor_dist < 1e-3) & (a - mixed_neighbor_dist < 1e-3))
+        
+        # assert torch.all((neighbor_dist_list[sampling_src_idx] - mixed_neighbor_dist < 1e-3) & (neighbor_dist_list[sampling_src_idx] - mixed_neighbor_dist < 1e-3))
     else:
         mixed_neighbor_dist = neighbor_dist_list[sampling_src_idx]
 

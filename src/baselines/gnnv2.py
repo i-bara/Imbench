@@ -54,11 +54,6 @@ class GnnModel(nn.Module):
         super(GnnModel, self).__init__()
         self.args = args
         self.baseline = baseline
-        self.criterion_default = self.criterion
-        self.criterion_dict = dict()
-
-        self.regularizations = set()
-
         self.conv_dict, self.gnn_kwargs = self.config_gnn()
 
         self.config_classifier(GNN)
@@ -89,63 +84,14 @@ class GnnModel(nn.Module):
         
         self.reg_params = self.classifier.reg_params
         self.non_reg_params = self.classifier.non_reg_params
-    
-
-    @DeprecationWarning
-    def regularization(func):
-        def wrapper(self, *args, **kwargs):
-            self.regularizations.add(func)
-            return func(self, *args, **kwargs)
-        return wrapper
 
 
-    def criterion(self, output, y, mask, weight):
-        return F.cross_entropy(output[mask], y[mask], weight=weight)
-    
+    def forward(self, x, edge_index, y=None):
+        # if mask is None:
+        #     mask = self.baseline.mask()
 
-    def _loss(self, output, y, mask, weight, phase, reg):
-        if phase is None:
-            criterions = self.criterion_default
-        else:
-            criterions = self.criterion_dict[phase]
-
-        if type(criterions) == dict:
-            loss = 0
-            for criterion, criterion_weight in criterions.items():
-                if criterion in self.regularizations:
-                    loss += criterion_weight * criterion(**reg)
-                else:
-                    loss += criterion_weight * criterion(output=output, y=y, mask=mask, weight=weight)
-        elif type(criterions) == list:
-            loss = 0
-            for criterion in criterions:
-                if criterion in self.regularizations:
-                    loss += criterion(**reg)
-                else:
-                    loss += criterion(output=output, y=y, mask=mask, weight=weight)
-        else:
-            criterion = criterions
-            if criterion in self.regularizations:
-                loss = criterion(**reg)
-            else:
-                loss = criterion(output=output, y=y, mask=mask, weight=weight)
-
-        return loss
-    
-
-    def _output(self, x, edge_index, phase, **kwargs):
-        return self.classifier(x=x, edge_index=edge_index, **kwargs)
-
-
-    def forward(self, x, edge_index, y=None, mask=None, weight=None, logit=False, phase=None, reg=None, **kwargs):
-        if mask is None:
-            mask = self.baseline.mask()
-
-        output = self._output(x=x, edge_index=edge_index, phase=phase, **kwargs)
-        if logit:
-            return output
-        
-        return self._loss(output=output, y=y, mask=mask, weight=weight, phase=phase, reg=reg)
+        self.output = self.classifier(x=x, edge_index=edge_index)
+        return self.output
 
 
 class GnnModelWithEncoder(GnnModel):
@@ -211,6 +157,8 @@ class gnn(Baseline):
         else:
             self.init()
 
+        self.training = False
+
 
     def train(self):
         for epoch in tqdm.tqdm(range(self.args.epoch)):
@@ -222,14 +170,23 @@ class gnn(Baseline):
                 hook(epoch=epoch)
             if self.epoch_time_stat >= 2:
                 self.epoch_timer.end(f'before: {epoch}')
+
+            # train
             self.train_epoch(epoch=epoch)
+
             if self.epoch_time_stat >= 2:
                 self.epoch_timer.tick(f'train : {epoch}')
+
+            # val
             self.val_epoch(epoch=epoch)
+
             if self.epoch_time_stat >= 2:
                 self.epoch_timer.tick(f'val   : {epoch}')
-            output = self._epoch_loss(epoch=epoch, mode='test')
+            output = self.epoch_output(epoch=epoch)
+
+            # test
             self.test(output)
+
             if self.epoch_time_stat >= 2:
                 self.epoch_timer.tick(f'test  : {epoch}')
             for hook in self.after_hooks:
@@ -239,7 +196,7 @@ class gnn(Baseline):
             if self.epoch_time_stat >= 1:
                 self.epoch_timer2.end(f'total : {epoch}')
 
-        output = self._epoch_loss(epoch=epoch, mode='test')
+        output = self.epoch_output(epoch=epoch)
         self.test(output)
         return output
 
@@ -247,10 +204,11 @@ class gnn(Baseline):
     def train_epoch(self, epoch):
         for model in self.models:
             model.train()
+        self.training = True
         self.optimizer.zero_grad()
         if self.epoch_time_stat >= 3:
             self.t.begin()
-        loss = self._epoch_loss(epoch=epoch, mode='train')
+        loss = self._epoch_loss(epoch=epoch)[self.mask('train')].mean()
         if self.epoch_time_stat >= 3:
             self.t.tick('loss')
         loss.backward()
@@ -265,7 +223,8 @@ class gnn(Baseline):
     def val_epoch(self, epoch):
         for model in self.models:
             model.eval()
-        loss = self._epoch_loss(epoch=epoch, mode='val')
+        self.training = False
+        loss = self._epoch_loss(epoch=epoch)[self.mask('val')].mean()
         self.scheduler.step(loss)
 
 
@@ -274,18 +233,19 @@ class gnn(Baseline):
         if self.minibatch_size is not None:
             self.batch()
             self.init()
-        return self.epoch_loss(epoch=epoch, mode=mode)
-    
+        return self.loss(self.epoch_output(epoch=epoch), y=self.data.y)
+
 
     def init(self):
         pass
 
 
-    def epoch_loss(self, epoch, mode='test'):
-        if mode == 'test':
-            return self.model(x=self.data.x, edge_index=self.data.edge_index, y=self.data.y, logit=True, **self.forward_kwargs)
-        else:
-            return self.model(x=self.data.x, edge_index=self.data.edge_index, y=self.data.y, mask=self.mask(mode), **self.forward_kwargs)
+    def epoch_output(self, epoch):
+        return self.model(x=self.data.x, edge_index=self.data.edge_index, y=self.data.y, **self.forward_kwargs)
+
+
+    def loss(self, output, y):
+        return F.cross_entropy(output, y, reduction='none')
         
 
     def pr(self, edge_index, pagerank_prob=0.85, limit=None, k=None, eps=None, device=None, iterations=None, sparse=False):

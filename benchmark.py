@@ -22,7 +22,7 @@ def parse_args():
 args = parse_args()
 
 all_config = dict()
-all_config['methods'] = ['vanilla', 'drgcn', 'smote', 'imgagn', 'dpgnn', 'mixup', 'ens', 'tam', 'lte4g', 'sann', 'topoauc', 'sha', 'renode', 'pastel', 'hyperimba', 'igraphmix']
+all_config['methods'] = ['vanilla', 'drgcn', 'smote', 'imgagn', 'dpgnn', 'mixup', 'ens', 'tam', 'lte4g', 'sann', 'topoauc', 'sha', 'renode', 'pastel', 'hyperimba', 'igraphmix', 'bat']
 all_config['datasets'] = ['Cora_100', 'Cora_20', 'Cora_1', 
                           'CiteSeer_100', 'CiteSeer_20', 'CiteSeer_1', 
                           'PubMed_100', 'PubMed_20', 'PubMed_1', 
@@ -112,7 +112,7 @@ def experiment(method, dataset, seed, options, records, records_file, cache_file
 
         with open(cache_file) as f:
             info = f.read()
-            match = re.match('[\\S\\s]*result: ([\\S\\s]*)\n', info)
+            match = re.match('[\\S\\s]*result: (\\{[\\S\\s]*\\})\n[\\S\\s]*', info)
             if match is not None:
                 record = json.loads(match.groups()[0])
                 print(record)

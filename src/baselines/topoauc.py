@@ -1,33 +1,63 @@
 from renode import IMB_LOSS, index2adj_bool
-from utils.GraphAUC import ELossFN
-from .gnn import GnnModel
+from utils.GraphAUC import ELossFN, GAUCLoss
+from .gnnv3 import GnnModel, GNN
 from .pr import pr
 import torch
 from torch import optim
 from torch.nn import functional as F
+from torch import nn
+# from .nets.sha import GCNConv, GATConv, SAGEConv
+from .nets import GCNConv, GATConv, SAGEConv
+from .mixv3 import EnsGNN
 
 
-class TopoaucModel(GnnModel):
+class TopoaucModel(nn.Module):
     def __init__(self, args, baseline):
-        super().__init__(args, baseline)
-        self.criterion_dict['warmup'] = self.warmup_criterion
+        super(TopoaucModel, self).__init__()
+        self.args = args
+        self.baseline = baseline
+    
+        conv_dict = {
+            'GCN': GCNConv,
+            'GAT': GATConv,
+            'SAGE': SAGEConv,
+        }
+
+        self.encoder = GNN(Conv=conv_dict[self.args.net], 
+                                n_feat=self.baseline.n_feat, n_hid=self.args.feat_dim, n_cls=self.baseline.n_cls, 
+                                dropout=self.args.dropout, 
+                                n_layer=self.args.n_layer,
+                                encoder=True)
+        
+        self.reg_params = self.parameters()
+        self.non_reg_params = list()
 
 
-    def warmup_criterion(self, output, y, mask, weight):
-        loss = self.baseline.imb_loss(output[mask], y[mask])
-        return torch.mean(loss)
+    def forward(self, x, edge_index, y, **kwargs):
+        self.embed = self.encoder(x=x, edge_index=edge_index, **kwargs)        
+        return self.embed
+
+# class TopoaucModel(GnnModel):
+#     def __init__(self, args, baseline):
+#         super().__init__(args, baseline)
+#         self.criterion_dict['warmup'] = self.warmup_criterion
 
 
-    def criterion(self, output, y, mask, weight):
-        # loss = self.baseline.imb_loss(output[mask], y[mask])
-        output = F.softmax(output, dim=1)
-        loss = self.baseline.auc_loss(output, y, mask, w_values_dict=None)
-        return torch.mean(loss)
+#     def warmup_criterion(self, output, y):
+#         loss = self.baseline.imb_loss(output, y)
+#         return loss
+
+
+#     def criterion(self, output, y):
+#         # loss = self.baseline.imb_loss(output[mask], y[mask])
+#         output = F.softmax(output, dim=1)
+#         loss = self.baseline.auc_loss(output, y, w_values_dict=None)
+#         return loss
 
 
 class topoauc(pr):
     def parse_args(parser):
-        parser.add_argument('--warmup', default=250, type=int, help='warmup epoch')
+        parser.add_argument('--warmup', default=5, type=int, help='warmup epoch')
         parser.add_argument('--warmup_loss_name', default="focal", type=str,
                             choices=["ce", "focal", "re-weight", "cb-softmax"])
         parser.add_argument('--factor_focal', default=2.0,    type=float, help="alpha in Focal Loss")
@@ -69,24 +99,46 @@ class topoauc(pr):
         # self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=0.5, patience=100)
 
 
-    def train_epoch(self, epoch):
-        self.model.train()
-        self.auc_loss.train()
-        self.optimizer.zero_grad()
-        if self.args.warmup is not None and epoch < self.args.warmup:
-            loss = self.model(x=self.data.x, edge_index=self.data.edge_index, y=self.data.y, mask=self.mask('train'), phase='warmup')
-        else:
-            loss = self.model(x=self.data.x, edge_index=self.data.edge_index, y=self.data.y, mask=self.mask('train'))
-        loss.backward()
-        self.optimizer.step()
+    # def train_epoch(self, epoch):
+    #     self.model.train()
+    #     self.auc_loss.train()
+    #     self.optimizer.zero_grad()
+    #     if self.args.warmup is not None and epoch < self.args.warmup:
+    #         loss = self.model(x=self.data.x, edge_index=self.data.edge_index, y=self.data.y, mask=self.mask('train'), phase='warmup')
+    #     else:
+    #         loss = self.model(x=self.data.x, edge_index=self.data.edge_index, y=self.data.y, mask=self.mask('train'))
+    #     loss.backward()
+    #     self.optimizer.step()
 
 
-    @torch.no_grad()
-    def val_epoch(self, epoch):
-        self.model.eval()
-        self.auc_loss.eval()
-        if self.args.warmup is not None and epoch < self.args.warmup:
-            loss = self.model(x=self.data.x, edge_index=self.data.edge_index, y=self.data.y, mask=self.mask('val'), phase='warmup')
+    # @torch.no_grad()
+    # def val_epoch(self, epoch):
+    #     self.model.eval()
+    #     self.auc_loss.eval()
+    #     if self.args.warmup is not None and epoch < self.args.warmup:
+    #         loss = self.model(x=self.data.x, edge_index=self.data.edge_index, y=self.data.y, mask=self.mask('val'), phase='warmup')
+    #     else:
+    #         loss = self.model(x=self.data.x, edge_index=self.data.edge_index, y=self.data.y, mask=self.mask('val'))
+    #     self.scheduler.step(loss)
+        
+        
+    def epoch_output(self, epoch):
+        return self.model(x=self.data.x, edge_index=self.data.edge_index, y=self.data.y)
+            
+
+    def logits(self, output):
+        return F.softmax(output, dim=1)
+
+
+    def loss(self, output, y):
+        pred = F.softmax(output, dim=1)
+        if self.epoch >= self.args.warmup:
+            return self.auc_loss(pred, y, mask=self.mask('train'))
         else:
-            loss = self.model(x=self.data.x, edge_index=self.data.edge_index, y=self.data.y, mask=self.mask('val'))
-        self.scheduler.step(loss)
+            return self.imb_loss(pred, y)
+            
+        # return F.cross_entropy(pred, y)
+        # return self.imb_loss(pred, y)
+        # return self.auc_loss(pred, y, mask=self.mask(self.phase))
+        #  + 0.3 * (torch.log(1.000001 - self.model.score_bad)).squeeze(dim=-1)
+        # return F.cross_entropy(output, y, reduction='none') - 0.4 * (torch.log(self.model.score)).squeeze(dim=-1) - 0.4 * (torch.log(1.000001 - self.model.score_bad)).squeeze(dim=-1)

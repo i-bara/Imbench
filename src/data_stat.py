@@ -35,14 +35,27 @@ for dataset_name in ['Cora', 'CiteSeer', 'PubMed', 'chameleon', 'squirrel', 'Act
     data = data_.to('cpu')
 
     masks = dict()
+    s = ""
 
     if dataset_name in ['Cora', 'CiteSeer', 'PubMed', 'chameleon', 'squirrel', 'Actor', 'Wisconsin', 'Coauthor-CS', 'Amazon-Computers', 'Amazon-Photo', 'ogbn-arxiv']:
         for imb_ratio in [100, 20, 1]:
             masks['train'], masks['val'], masks['test'] = get_longtail_split(data, imb_ratio=imb_ratio, train_ratio=0.1, val_ratio=0.1)
-            a = dict()
-            for ds in ['train', 'val', 'test']:
-                a[ds] = torch.arange(n_sample, dtype=torch.int32, device='cpu')[masks[ds]].tolist()
-            with open(os.path.join(output_path, dataset_name, f'{imb_ratio}.json'), 'w+') as f:
-                json.dump(a, f, indent=4)
+            
+            s += f"{dataset_name}-{imb_ratio}\n"
+            train_num = [(data.y[masks['train']] == c).sum().item() for c in range(n_cls)]
+            for c in range(n_cls):
+                s += f"{c}: {'%.1f%%' % (train_num[c] / sum(train_num) * 100)}\n"
+            s += "\n"
+            
+            # torch.save(data, os.path.join(output_path, dataset_name, 'dataset.pt'))
+            # torch.save(masks, os.path.join(output_path, dataset_name, f'{imb_ratio}.pt'))
+            
+            # a = dict()
+            # for ds in ['train', 'val', 'test']:
+            #     a[ds] = torch.arange(n_sample, dtype=torch.int32, device='cpu')[masks[ds]].tolist()
+            # with open(os.path.join(output_path, dataset_name, f'{imb_ratio}.json'), 'w+') as f:
+            #     json.dump(a, f, indent=4)
     else:
         raise NotImplementedError
+
+    print(s)
