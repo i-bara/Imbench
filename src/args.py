@@ -16,6 +16,8 @@ from baselines.upsample import upsample
 from baselines.mix import mix
 from baselines.mixv3 import mix as mixv2
 from baselines.bat import Bat
+from baselines.graphmix import GraphMix
+from baselines.mmixup import Mmixup
 
 
 baseline_dict = {
@@ -32,9 +34,11 @@ baseline_dict = {
     'tam': tam,
     'igraphmix': igraphmix,
     'upsample': upsample,
-    'mix': mix,
-    'mixv2': mixv2,
+    'mix_old': mix,
+    'mix': mixv2,
     'bat': Bat,
+    'graphmix': GraphMix,
+    'mmixup': Mmixup,
 }
 
 
@@ -45,7 +49,7 @@ def parse_args():
     parser.add_argument('--method', type=str, choices=[
         'vanilla', 'drgcn', 'smote', 'imgagn', 'lte4g', 'dpgnn', 'mixup', 
         'ens', 'tam', 'topoauc', 'sha', 'renode', 'pastel', 'hyperimba', 
-        'igraphmix', 'upsample', 'mix', 'mixv2', 'bat'], 
+        'igraphmix', 'upsample', 'mix_old', 'mix', 'bat', 'graphmix', 'mmixup'], 
                         default='vanilla', 
                         help='the method used to train')
 

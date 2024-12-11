@@ -1,5 +1,7 @@
 from .nets.sha import GCNConv, GATConv, SAGEConv
 from .gnnv3 import gnn, GnnModel, GNN
+from .mix_base import mix_base
+
 import torch
 from torch import nn, optim
 from torch.nn import functional as F
@@ -30,11 +32,35 @@ import math
 #         return self.propagate(edge_index, x=x)
 
 class Palm(nn.Module):
-    def __init__(self, feat_dim, n_cls, proto_m=0.99, temp=0.1, lambda_pcon=1, k=0, epsilon=0.05):
+    def __init__(
+        self, 
+        feat_dim: int, 
+        n_cls: int, 
+        proto_m: float = 0.99, 
+        temp: float = 0.1, 
+        lambda_pcon: float = 1, 
+        topk: bool = False, 
+        k: int = 3, 
+        epsilon: float = 0.05, 
+        n_proto_per_cls: int = 4, 
+        n_src_per_proto: int = 1, 
+        n_mix_per_src: int = 10, 
+    ):
+        r"""
+        Args:
+            feat_dim (int): dimension of input features
+            n_cls (int): number of classes
+            proto_m (float, optional): momentum for update of prototype. (default: :obj:`0.99`)
+            temp (float, optional): temperature scaling. (default: :obj:`0.1`)
+            lambda_pcon (float, optional): weight of prototype consistency loss. (default: :obj:`1`)
+            topk (bool, optional): whether to use topk prototypes. (default: :obj:`False`)
+            k (int): topk number of prototypes: if k is 0, use all prototypes of the class; else use topk prototypes (default: :obj:`0`)
+            epsilon (float, optional): weight of prototype consistency loss. (default: :obj:`0.05`)
+        """
         super(Palm, self).__init__()
         self.n_cls = n_cls
         self.temp = temp  # temperature scaling
-        self.n_proto_per_cls = 4
+        self.n_proto_per_cls = n_proto_per_cls
 
         self.lambda_pcon = lambda_pcon
 
@@ -42,7 +68,10 @@ class Palm(nn.Module):
 
         self.epsilon = epsilon
         self.sinkhorn_iterations = 3
-        self.k = min(k, self.n_proto_per_cls)
+        
+        self.topk = topk
+        if topk:
+            self.k = min(k, self.n_proto_per_cls)
 
         self.n_protos = self.n_proto_per_cls * n_cls
         self.proto_m = proto_m  # momentum for update of prototype
@@ -50,9 +79,25 @@ class Palm(nn.Module):
         
         self.protos = F.normalize(self.protos, dim=-1)
         
-        self.n_src_per_proto = 1
-        self.n_mix_per_src = 10
+        self.n_src_per_proto = n_src_per_proto
+        self.n_mix_per_src = n_mix_per_src
         
+    def __sinkhorn(self, Q):
+        B = Q.shape[1]  # number of samples to assign
+        K = Q.shape[0]  # how many prototypes
+        
+        for _ in range(self.sinkhorn_iterations):
+            # normalize each row: total weight per prototype must be 1/K
+            Q = F.normalize(Q, dim=1, p=1)
+            Q /= K
+
+            # normalize each column: total weight per sample must be 1/B
+            Q = F.normalize(Q, dim=0, p=1)
+            Q /= B
+
+        Q *= B
+        
+        return Q
 
     def __weight(self, features):
         r"""
@@ -61,8 +106,6 @@ class Palm(nn.Module):
         out = torch.matmul(features, self.protos.detach().T)
 
         Q = torch.exp(out.detach() / self.epsilon).t()  # Q is K-by-B for consistency with notations from our paper
-        B = Q.shape[1]  # number of samples to assign
-        K = Q.shape[0]  # how many prototypes
 
         # make the matrix sums to 1
         sum_Q = torch.sum(Q)
@@ -72,8 +115,21 @@ class Palm(nn.Module):
             Q = torch.exp(out.detach() / self.epsilon).t()  # Q is K-by-B for consistency with notations from our paper
             sum_Q = torch.sum(Q)
         Q /= sum_Q
-
         
+        B = Q.shape[1]  # number of samples to assign
+        K = Q.shape[0]  # how many prototypes
+        
+        for _ in range(self.sinkhorn_iterations):
+            # normalize each row: total weight per prototype must be 1/K
+            Q = F.normalize(Q, dim=1, p=1)
+            Q /= K
+
+            # normalize each column: total weight per sample must be 1/B
+            Q = F.normalize(Q, dim=0, p=1)
+            Q /= B
+
+        Q *= B
+
         return Q.t()
 
     def __mle_loss(self, features, labels, train_mask):
@@ -88,7 +144,7 @@ class Palm(nn.Module):
 
         Q = self.__weight(features_train)  # Association matrix representing the weight between a feature embedding and a prototype
         # topk
-        if self.k > 0:
+        if self.topk:
             update_mask = mask * Q
             _, topk_idx = torch.topk(update_mask, self.k, dim=1)
             topk_mask = torch.scatter(
@@ -121,7 +177,7 @@ class Palm(nn.Module):
         anchor_dot_contrast = torch.div(proto_dis, self.temp)
         logits = anchor_dot_contrast
 
-        if self.k > 0:
+        if self.topk:
             loss_mask = mask * Q
             _, topk_idx = torch.topk(update_mask, self.k, dim=1)
             topk_mask = torch.scatter(
@@ -527,13 +583,26 @@ class MixPalmModel(nn.Module):
         return self.embed
 
 
-class mix(gnn):
+class mix(mix_base):
     def parse_args(parser):
         parser.add_argument('--warmup', type=int, default=5, help='warmup epoch')
         parser.add_argument('--keep_prob', type=float, default=0.01, help='keeping probability') # used in ens
         parser.add_argument('--tau', type=int, default=2, help='temperature in the softmax function when calculating confidence-based node hardness')
         parser.add_argument('--max', action="store_true", help='synthesizing to max or mean num of training set. default is mean') 
         parser.add_argument('--no_mask', action="store_true", help='whether to mask the self class in sampling neighbor classes. default is mask')
+        
+        parser.add_argument('--proto_m', type=float, default=0.99, help='proto_momentum in the palm model')
+        parser.add_argument('--temp', type=float, default=0.1, help='temperature in the softmax function in the palm model')
+        parser.add_argument('--lambda_pcon', type=float, default=1, help='lambda_pcon in the palm model')
+        parser.add_argument('--topk', action="store_true", help='whether to use topk in the palm model')
+        parser.add_argument('--k', type=int, default=3, help='k in the palm model')
+        parser.add_argument('--epsilon', type=float, default=0.05, help='epsilon in the palm model')
+        parser.add_argument('--n_proto_per_cls', type=int, default=4, help='n_proto_per_cls in the palm model')
+        parser.add_argument('--n_src_per_proto', type=int, default=1, help='n_src_per_proto in the palm model')
+        parser.add_argument('--n_mix_per_src', type=int, default=10, help='n_mix_per_src in the palm model')
+        
+        parser.add_argument('--distance_influence_ratio', type=float, default=1, help='distance influence ratio')
+        parser.add_argument('--alpha', type=float, default=100, help='alpha of beta distribution to sample mixup ratio lam')
 
 
     def __init__(self, args):
@@ -552,7 +621,19 @@ class mix(gnn):
 
         self.score = None
         
-        self.palm = Palm(feat_dim=self.args.feat_dim, n_cls=self.n_cls)
+        self.palm = Palm(
+            feat_dim = self.args.feat_dim, 
+            n_cls = self.n_cls, 
+            proto_m = self.args.proto_m, 
+            temp = self.args.temp, 
+            lambda_pcon = self.args.lambda_pcon, 
+            topk = self.args.topk, 
+            k = self.args.k, 
+            epsilon = self.args.epsilon, 
+            n_proto_per_cls = self.args.n_proto_per_cls, 
+            n_src_per_proto = self.args.n_src_per_proto, 
+            n_mix_per_src = self.args.n_mix_per_src, 
+        )
         
         self.neighbor_dist = self.get_neighbor_dist(n_node=self.data.x.shape[0], \
             edge_index=self.data.edge_index, method="ppr")
@@ -1175,32 +1256,6 @@ class mix(gnn):
         return new_x, new_edge_index, new_y
 
 
-    def uniform(self, k: float=1.0):
-        r"""
-        Samples from a uniform distribution over [0, k].
-        
-        Args:
-            k (float, optional): The upper bound. (default: :obj:`1.0`)
-        
-        Returns:
-            x (float): A random number in [0, k].
-        """
-        return random.random() * k
-
-
-    def beta(self, alpha: float=1.0):
-        r"""
-        Samples from a beta distribution with alpha
-        
-        Args:
-            alpha (float, optional): Alpha. (default: :obj:`1.0`)
-        
-        Returns:
-            x (float): A random sample.
-        """
-        return np.random.beta(alpha, alpha)
-
-
     def hop(self, x, edge_index, r: int):
         assert r > 0
         adj = SparseTensor(row=edge_index[0], col=edge_index[1],
@@ -1505,7 +1560,7 @@ class mix(gnn):
         # new_edge_index = self.mixup_edge_dropout(x=x, edge_index=edge_index, lam=lam, \
         #     src=src, dst=dst, n_node=n_node, connect=connect)
         new_edge_index = self.mixup_edge_ens(x=x, edge_index=edge_index, lam=lam, \
-            src=src, dst=dst, n_node=n_node, neighbor_dist_list=neighbor_dist_list / self.palm.distance(x) ** 0)  # hyperparameter
+            src=src, dst=dst, n_node=n_node, neighbor_dist_list=neighbor_dist_list / self.palm.distance(x) ** self.args.distance_influence_ratio)  # hyperparameter
 
         return new_x, new_edge_index, new_y
     
@@ -1888,7 +1943,7 @@ class mix(gnn):
             # x_sha, edge_index_sha, y_sha = self.mixup_sha_new(x, edge_index, y, epoch=epoch, sampling_list=1.0, score=self.score, n_node=x.shape[0] + x_smote.shape[0])
             
             if epoch > 10:
-                self.lam = self.beta(100.0)
+                self.lam = self.beta(self.args.alpha)
                 
                 # Update saliency
                 self.model.encoder.convs[0].temp_weight.register_backward_hook(self.backward_hook)

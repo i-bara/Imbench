@@ -166,6 +166,12 @@ class Baseline:
             inv_idx[idx[i].item()] = i
         return inv_idx
     
+    
+    def inv_of_permuted(self, permuted):
+        inv_of_permuted = torch.zeros_like(permuted)
+        inv_of_permuted[permuted] = torch.arange((len(permuted)), dtype=permuted.dtype, device=permuted.device)
+        return inv_of_permuted
+    
 
     def num(self, keys=None, mask=None, **kwargs):
         if keys is not None:
@@ -297,7 +303,7 @@ class Baseline:
     def run(self):
         hyperparameter = dict()
         for arg in vars(self.args):
-            if arg not in ['method', 'dataset', 'imb_ratio', 'seed', 'net', 'device', 'debug', 'output', 'data_path', 'n_head']:
+            if arg not in ['method', 'dataset', 'imb_ratio', 'seed', 'net', 'device', 'debug', 'output', 'data_path', 'n_head', 'project_name']:
                 hyperparameter[arg] = getattr(self.args, arg)
 
         config = {
@@ -311,21 +317,18 @@ class Baseline:
         }
 
         if USE_WANDB:
-            if RUN_NAME is not None:
-                run = wandb.init(
-                    # Set the project where this run will be logged
-                    project="imbench",
-                    name=RUN_NAME,
-                    # Track hyperparameters and run metadata
-                    config=config,
-                )
-            else:
-                run = wandb.init(
-                    # Set the project where this run will be logged
-                    project="imbench",
-                    # Track hyperparameters and run metadata
-                    config=config,
-                )
+            run = wandb.init(
+                # Set the project where this run will be logged
+                project="imbench",
+                name=RUN_NAME,
+                # Track hyperparameters and run metadata
+                config=config,
+            )
+            try:
+                for key in wandb.config._items['hyperparameter'].keys():
+                    self.args.__setattr__(key, wandb.config.__getattr__(key))
+            except AttributeError:
+                pass
 
         # Train
         begin_datetime = datetime.datetime.now()
