@@ -246,7 +246,7 @@ def make_longtailed_data_remove(edge_index, label, n_data, n_cls, ratio, train_m
 
     return list(class_num_list), train_mask, idx_info, node_mask, edge_mask
 
-def get_step_split(imb_ratio, valid_each, labeling_ratio, all_idx, all_label, nclass):
+def get_step_split2(imb_ratio, valid_each, labeling_ratio, all_idx, all_label, nclass):
     base_valid_each = valid_each
 
     head_list = [i for i in range(nclass//2)] 
@@ -331,6 +331,56 @@ def get_longtail_split(data, imb_ratio, train_ratio, val_ratio):
 
     # train
     class_num_list_train = split_lt(class_num_list=class_num_list, indices=indices, inv_indices=inv_indices, \
+                          imb_ratio=imb_ratio, n_cls=data.y.max().item() + 1, n=data.y.shape[0] * train_ratio)
+
+    data_mask = torch.ones(data.y.shape[0], dtype=torch.bool, device=data.y.device)
+
+    data_train_mask = choose(class_num_list, class_num_list_train, indices, data, data_mask, choose_deg=None, keep=20)  # At least 20 for val and test
+
+    # val
+    class_num_list_val = split_same(class_num_list=class_num_list, indices=indices, inv_indices=inv_indices, \
+                          imb_ratio=imb_ratio, n_cls=data.y.max().item() + 1, n=data.y.shape[0] * val_ratio)
+
+    data_mask = data_mask & torch.logical_not(data_train_mask)
+
+    data_val_mask = choose(class_num_list, class_num_list_val, indices, data, data_mask, choose_deg=None, keep=10)  # At least 10 for test
+
+    # test
+    data_test_mask = data_mask & torch.logical_not(data_val_mask)
+
+    return data_train_mask, data_val_mask, data_test_mask
+
+
+def get_step_split(data, imb_ratio, train_ratio, val_ratio):
+    class_num_list, indices, inv_indices = sort(data=data)
+
+    # train
+    class_num_list_train = split_step(class_num_list=class_num_list, indices=indices, inv_indices=inv_indices, \
+                          imb_ratio=imb_ratio, n_cls=data.y.max().item() + 1, n=data.y.shape[0] * train_ratio)
+
+    data_mask = torch.ones(data.y.shape[0], dtype=torch.bool, device=data.y.device)
+
+    data_train_mask = choose(class_num_list, class_num_list_train, indices, data, data_mask, choose_deg=None, keep=20)  # At least 20 for val and test
+
+    # val
+    class_num_list_val = split_same(class_num_list=class_num_list, indices=indices, inv_indices=inv_indices, \
+                          imb_ratio=imb_ratio, n_cls=data.y.max().item() + 1, n=data.y.shape[0] * val_ratio)
+
+    data_mask = data_mask & torch.logical_not(data_train_mask)
+
+    data_val_mask = choose(class_num_list, class_num_list_val, indices, data, data_mask, choose_deg=None, keep=10)  # At least 10 for test
+
+    # test
+    data_test_mask = data_mask & torch.logical_not(data_val_mask)
+
+    return data_train_mask, data_val_mask, data_test_mask
+
+
+def get_natural_split(data, imb_ratio, train_ratio, val_ratio):
+    class_num_list, indices, inv_indices = sort(data=data)
+
+    # train
+    class_num_list_train = split_same(class_num_list=class_num_list, indices=indices, inv_indices=inv_indices, \
                           imb_ratio=imb_ratio, n_cls=data.y.max().item() + 1, n=data.y.shape[0] * train_ratio)
 
     data_mask = torch.ones(data.y.shape[0], dtype=torch.bool, device=data.y.device)

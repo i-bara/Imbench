@@ -68,6 +68,7 @@ def parse_args():
     # Data
     parser.add_argument('--dataset', type=str, choices=['Cora', 'CiteSeer', 'PubMed', 'chameleon', 'squirrel', 'Actor', 'Wisconsin', 'Amazon-Photo', 'Amazon-Computers', 'Coauthor-CS', 'ogbn-products', 'ogbn-proteins', 'ogbn-arxiv', 'ogbn-papers100M', 'ogbn-mag'], default='Cora', help='dataset name')
     parser.add_argument('--data_path', type=str, default='datasets/', help='data path')
+    parser.add_argument('--split', type=str, choices=['lt', 'st', 'nt', 'long-tailed', 'step-tailed', 'natural'], default='lt', help='split method, must be one of [long-tailed (lt), step (st), natural (nt)]')
     parser.add_argument('--imb_ratio', type=float, default=100, help='imbalance ratio')
 
     # Backbone

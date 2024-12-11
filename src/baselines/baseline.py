@@ -7,7 +7,7 @@ import os
 import json
 import argparse
 import datetime
-from data_utils import get_dataset, get_longtail_split
+from data_utils import get_dataset, get_longtail_split, get_step_split, get_natural_split
 from sklearn.metrics import balanced_accuracy_score, f1_score, roc_auc_score
 
 
@@ -239,7 +239,14 @@ class Baseline:
             # elif args.dataset == 'ogbn-arxiv':
             #     data.y = data.y[:, 0]
 
-            self.masks['train'], self.masks['val'], self.masks['test'] = get_longtail_split(self.data, imb_ratio=args.imb_ratio, train_ratio=0.1, val_ratio=0.1)
+            if args.split in ['long-tailed', 'lt']:
+                self.masks['train'], self.masks['val'], self.masks['test'] = get_longtail_split(self.data, imb_ratio=args.imb_ratio, train_ratio=0.1, val_ratio=0.1)
+            elif args.split in ['step', 'st']:
+                self.masks['train'], self.masks['val'], self.masks['test'] = get_step_split(self.data, imb_ratio=args.imb_ratio, train_ratio=0.1, val_ratio=0.1)
+            elif args.split in ['natural', 'nt']:
+                self.masks['train'], self.masks['val'], self.masks['test'] = get_natural_split(self.data, imb_ratio=args.imb_ratio, train_ratio=0.1, val_ratio=0.1)
+            else:
+                raise NotImplementedError('Unknown split method')
 
             # data_train_mask, data_val_mask, data_test_mask, class_num_list, idx_info = step(data=data, imb_ratio=args.imb_ratio)
 
