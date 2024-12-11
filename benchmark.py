@@ -189,52 +189,6 @@ def benchmark(name, methods, datasets, seeds):
                            records=records, records_file=records_file, cache_file=cache_file, output_path=output_path)
 
 
-def bayes(name, methods, datasets, seeds, options, iters):
-    suffix = ''
-
-    if args.gpu:
-        suffix += '_gpu'
-
-    if args.debug:
-        suffix += '_debug'
-    
-    if not os.path.isdir('log'):
-        os.system('mkdir log')
-    if not os.path.isdir('records'):
-        os.system('mkdir records')
-    if not os.path.isdir('cache'):
-        os.system('mkdir cache')
-    cache_file = 'cache/' + name + suffix + '.txt'
-
-    print(f'''
-    benchmark_{name}
-
-    methods = {methods}
-    datasets = {datasets}
-    seeds = {seeds}
-    ''')
-
-    for method in methods:
-        for dataset in datasets:
-            bayes_iter = 0
-            while os.path.isfile(f'records/bayes_{name}{suffix}/{method}/{dataset}/{bayes_file + 1}_bayes.json'):
-                bayes_iter += 1
-            while bayes_iter < iters:
-                bayes_file = f'records/bayes_{name}{suffix}/{method}/{dataset}/{bayes_file}_bayes.json'
-                # TODO: Get options from file
-                records_file = f'records/bayes_{name}{suffix}/{method}/{dataset}/{bayes_file}.json'
-
-                if os.path.exists(records_file):
-                    with open(records_file) as f:
-                        records = json.load(f)
-                else:
-                    records = []
-                for seed in seeds:
-                    experiment(method=method, dataset=dataset, seed=seed, options=options, 
-                            records=records, records_file=records_file, cache_file=cache_file)
-                # TODO: Update options and state to file
-
-
 if __name__ == '__main__':
     name = args.name
     config_file = 'benchmark/' + name + '.json'
