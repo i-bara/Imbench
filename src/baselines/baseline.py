@@ -175,7 +175,7 @@ class Baseline:
 
     def num(self, keys=None, mask=None, **kwargs):
         if keys is not None:
-            if type(keys) == torch.Tensor and keys.dtype == torch.bool:
+            if isinstance(keys, torch.Tensor) and keys.dtype == torch.bool:
                 return keys.sum().item()
             return self.mask(keys=keys).sum().item()
 
@@ -183,6 +183,11 @@ class Baseline:
             return mask.sum().item()
 
         return self.mask(**kwargs).sum().item()
+    
+    
+    def reweight(self, keys=None):
+        return torch.tensor([self.num(self.mask(keys=keys) & self.mask(c)) for c in range(self.n_cls)], \
+            dtype=torch.float32, device=self.device)
     
     
     def num_list(self, keys=None, **kwargs):

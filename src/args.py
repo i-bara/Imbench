@@ -18,6 +18,7 @@ from baselines.mixv3 import mix as mixv2
 from baselines.bat import Bat
 from baselines.graphmix import GraphMix
 from baselines.mmixup import Mmixup
+from baselines.reweight import Reweight
 
 
 baseline_dict = {
@@ -39,6 +40,7 @@ baseline_dict = {
     'bat': Bat,
     'graphmix': GraphMix,
     'mmixup': Mmixup,
+    'reweight': Reweight,
 }
 
 
@@ -49,7 +51,7 @@ def parse_args():
     parser.add_argument('--method', type=str, choices=[
         'vanilla', 'drgcn', 'smote', 'imgagn', 'lte4g', 'dpgnn', 'mixup', 
         'ens', 'tam', 'topoauc', 'sha', 'renode', 'pastel', 'hyperimba', 
-        'igraphmix', 'upsample', 'mix_old', 'mix', 'bat', 'graphmix', 'mmixup'], 
+        'igraphmix', 'upsample', 'mix_old', 'mix', 'bat', 'graphmix', 'mmixup', 'reweight'], 
                         default='vanilla', 
                         help='the method used to train')
 

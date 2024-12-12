@@ -1,5 +1,6 @@
 {
-    "methods": ["graphmix"],
-    "datasets": ["Cora_20"],
-    "seeds": 100
+    "method": ["reweight"],
+    "dataset": ["Cora"],
+    "imb_ratio": 20,
+    "seed": 100
 }
