@@ -22,7 +22,7 @@ def experiment(records, records_file, cache_file, output_path, **kwargs):
     for record in records:
         same = True
         for key, value in kwargs.items():
-            if record[key] != value:
+            if key not in record or record[key] != value:
                 same = False
                 break
         if same:
@@ -109,11 +109,12 @@ def benchmark(name, **config):
         current_config_index = [0] * len(config)
         
         while True:
+            print(current_config_index)
             current_config = {config_key_list[i]: config[config_key_list[i]][current_config_index[i]] for i in range(len(config))}
             for key, value in current_config.items():
                 print(f'{key} = {value}')
             experiment(records=records, records_file=records_file, cache_file=cache_file, output_path=output_path,  **current_config)
-            ptr = len(records) - 1
+            ptr = len(config) - 1
             while ptr >= 0:
                 current_config_index[ptr] += 1
                 if current_config_index[ptr] >= len(config[config_key_list[ptr]]):

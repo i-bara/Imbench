@@ -310,12 +310,13 @@ class Baseline:
     def run(self):
         hyperparameter = dict()
         for arg in vars(self.args):
-            if arg not in ['method', 'dataset', 'imb_ratio', 'seed', 'net', 'device', 'debug', 'output', 'data_path', 'n_head', 'project_name']:
+            if arg not in ['method', 'dataset', 'split', 'imb_ratio', 'seed', 'net', 'device', 'debug', 'output', 'data_path', 'n_head', 'project_name']:
                 hyperparameter[arg] = getattr(self.args, arg)
 
         config = {
             'method': self.args.method,
             'dataset': self.args.dataset,
+            'split': self.args.split,
             'imb_ratio': self.args.imb_ratio,
             'seed': self.args.seed,
             'device': str(self.device),
