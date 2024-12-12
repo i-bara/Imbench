@@ -103,13 +103,12 @@ def benchmark(name, **config):
         info = f'benchmark: {name}'
         print('=' * len(info))
         print(info)
-        print('-' * len(info))
         
         config_key_list = list(config.keys())
         current_config_index = [0] * len(config)
         
         while True:
-            print(current_config_index)
+            print('-' * len(info))
             current_config = {config_key_list[i]: config[config_key_list[i]][current_config_index[i]] for i in range(len(config))}
             for key, value in current_config.items():
                 print(f'{key} = {value}')
