@@ -90,7 +90,7 @@ def benchmark(name, **config):
     cache_file = 'cache/' + name + suffix + '.txt'
     output_path = f'records/{name}'
 
-    if os.path.exists(records_file):
+    if not args.debug and os.path.exists(records_file):
         with open(records_file) as f:
             records = json.load(f)
     else:
