@@ -11,10 +11,11 @@ from data_utils import get_dataset, get_longtail_split, get_step_split, get_natu
 from sklearn.metrics import balanced_accuracy_score, f1_score, roc_auc_score
 
 
-wandb.login()
-
-USE_WANDB = True
+USE_WANDB = False
 RUN_NAME = 'a'
+
+if USE_WANDB:
+    wandb.login()
 
 class Timer:
     def __init__(self, baseline) -> None:
@@ -185,9 +186,12 @@ class Baseline:
         return self.mask(**kwargs).sum().item()
     
     
-    def reweight(self, keys=None):
-        return torch.tensor([self.num(self.mask(keys=keys) & self.mask(c)) for c in range(self.n_cls)], \
+    def reweight(self, keys=None, normalize=False):
+        reweight = torch.tensor([self.num(self.mask(keys=keys) & self.mask(c)) for c in range(self.n_cls)], \
             dtype=torch.float32, device=self.device)
+        if normalize:
+            reweight /= reweight.sum()
+        return reweight
     
     
     def num_list(self, keys=None, **kwargs):
