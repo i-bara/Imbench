@@ -76,7 +76,7 @@ def parse_args():
     # Backbone
     parser.add_argument('--net', type=str, choices=['GCN', 'GAT', 'SAGE'], default='GCN', help='GNN bachbone')
     parser.add_argument('--n_layer', type=int, default=2, help='the number of layers')
-    parser.add_argument('--feat_dim', type=int, default=64, help='feature dimension')
+    parser.add_argument('--feat_dim', type=int, default=256, help='feature dimension')
     # GAT
     parser.add_argument('--n_head', type=int, default=8, help='the number of heads in GAT')
 
