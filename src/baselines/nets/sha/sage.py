@@ -85,7 +85,7 @@ class SAGEConv(MessagePassing):
         if self.normalize:
             out = F.normalize(out, p=2., dim=-1)
 
-        return out
+        return out, edge_index
 
     def message(self, x_j: Tensor) -> Tensor:
         return x_j
