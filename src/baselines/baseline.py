@@ -11,7 +11,7 @@ from data_utils import get_dataset, get_longtail_split, get_step_split, get_natu
 from sklearn.metrics import balanced_accuracy_score, f1_score, roc_auc_score
 
 
-USE_WANDB = False
+USE_WANDB = True
 RUN_NAME = 'a'
 
 if USE_WANDB:
@@ -110,7 +110,6 @@ class Baseline:
         if keys is not None:
             if type(keys) not in [list, torch.Tensor]:
                 keys = [keys]
-            print(self.data.y.shape[0])
             mask = torch.zeros(self.data.y.shape[0], dtype=bool, device=self.device)
             for i in keys:
                 if type(i) in [int, torch.Tensor]:
@@ -344,6 +343,7 @@ class Baseline:
             try:
                 for key in wandb.config._items['hyperparameter'].keys():
                     self.args.__setattr__(key, wandb.config.__getattr__(key))
+                print("sweep args: ", self.args)
             except AttributeError:
                 pass
 
@@ -381,7 +381,14 @@ class Baseline:
         result = json.dumps(result, indent=4)
         print(f'result: {result}')
         
-        wandb.finish()
+        if USE_WANDB:
+            log = dict()
+            log['test_acc'] = self.test_acc
+            log['test_bacc'] = self.test_bacc
+            log['test_f1'] = self.test_f1
+            log['test_auc'] = self.test_auc
+            wandb.log(log)
+            wandb.finish()
 
 
     def train(self):
@@ -422,7 +429,6 @@ class Baseline:
 
         perf = dict()
 
-        print(logits.shape, mask.shape)
         pred = logits[mask].max(1)[1]
         y_pred = pred.cpu().numpy()
         y_true = self.data.y[mask].cpu().numpy()

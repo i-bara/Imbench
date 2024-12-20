@@ -214,6 +214,7 @@ class gnn(Baseline):
 
     def train(self):
         for epoch in tqdm.tqdm(range(self.args.epoch)):
+            self.epoch = epoch
             if self.epoch_time_stat >= 2:
                 self.epoch_timer.begin()
             if self.epoch_time_stat >= 1:
@@ -230,6 +231,11 @@ class gnn(Baseline):
                 self.epoch_timer.tick(f'val   : {epoch}')
             output = self._epoch_loss(epoch=epoch, mode='test')
             self.test(output)
+            if self.epoch % 50 == 49:
+                print(f'epoch {self.epoch}: \
+                    {'%.3f' % (self.test_acc * 100)}, \
+                    {'%.3f' % (self.test_bacc * 100)}, \
+                    {'%.3f' % (self.test_f1 * 100)}')
             if self.epoch_time_stat >= 2:
                 self.epoch_timer.tick(f'test  : {epoch}')
             for hook in self.after_hooks:

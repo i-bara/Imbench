@@ -52,8 +52,8 @@ def parse_args():
         'vanilla', 'drgcn', 'smote', 'imgagn', 'lte4g', 'dpgnn', 'mixup', 
         'ens', 'tam', 'topoauc', 'sha', 'renode', 'pastel', 'hyperimba', 
         'igraphmix', 'upsample', 'mix_old', 'mix', 'bat', 'graphmix', 'mmixup', 'reweight'], 
-                        default='vanilla', 
-                        help='the method used to train')
+        default='mix', 
+        help='the method used to train')
 
     # Device
     parser.add_argument('--device', type=str, default='cuda:0', help='device')
@@ -83,8 +83,10 @@ def parse_args():
     # Hyperparameter
     parser.add_argument('--dropout', type=float, default=0.5, help='dropout')
     parser.add_argument('--weight_decay', type=float, default=5e-4, help='weight_decay')
-    parser.add_argument('--epoch', type=int, default=500, help='epoch')
-    parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
+    
+    
+    parser.add_argument('--epoch', type=int, default=1000, help='epoch')
+    parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
 
     args, _ = parser.parse_known_args()
     baseline = None
@@ -97,9 +99,11 @@ def parse_args():
             for parsing_base in parsing.__bases__:
                 parse(parsing_base)
         
+        print(f'method: {args.method}')
         baseline = baseline_dict[args.method]
         parse(baseline)
         args = parser.parse_args()
+        print(args)
         return args, baseline
     
     parser.add_argument('--warmup', type=int, default=5, help='warmup epoch')

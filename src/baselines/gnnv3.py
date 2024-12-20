@@ -190,6 +190,7 @@ class gnn(Baseline):
             # test
             self.phase = 'test'
             self.test(logits=logits)
+            print(f'epoch {epoch}: {self.test_acc * 100:.3f}')
 
             if self.epoch_time_stat >= 2:
                 self.epoch_timer.tick(f'test  : {epoch}')
@@ -202,8 +203,6 @@ class gnn(Baseline):
 
         logits = self._epoch_logits(epoch=epoch)
         self.test(logits=logits)
-        print(logits[:5, :])
-        print(self.data.y[:5])
         return logits
 
 
@@ -216,7 +215,7 @@ class gnn(Baseline):
             self.t.begin()
             
         loss = self._epoch_loss(epoch=epoch)
-        print(loss.shape, loss.dim())
+        
         if loss.dim() == 0:
             pass
         elif loss.dim() == 1:
@@ -227,7 +226,6 @@ class gnn(Baseline):
         
         if self.epoch_time_stat >= 3:
             self.t.tick('loss')
-        print(loss.shape)
         loss.backward()
         if self.epoch_time_stat >= 3:
             self.t.tick('backward')

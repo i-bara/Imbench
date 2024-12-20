@@ -112,7 +112,7 @@ class Palm(nn.Module):
         """
         out = torch.matmul(features, self.protos.detach().T)
         if self.reweight is not None:
-            out *= self.reweight.repeat(1, self.n_proto_per_cls)
+            out /= self.reweight.repeat(1, self.n_proto_per_cls)
 
         Q = torch.exp(out.detach() / self.epsilon).t()  # Q is K-by-B for consistency with notations from our paper
 
@@ -131,10 +131,12 @@ class Palm(nn.Module):
         for _ in range(self.sinkhorn_iterations):
             # normalize each row: total weight per prototype must be 1/K
             Q = F.normalize(Q, dim=1, p=1)
+            Q[torch.isnan(Q)] = 1 / K / B
             Q /= K
 
             # normalize each column: total weight per sample must be 1/B
             Q = F.normalize(Q, dim=0, p=1)
+            Q[torch.isnan(Q)] = 1 / K / B
             Q /= B
 
         Q *= B
@@ -169,7 +171,18 @@ class Palm(nn.Module):
         update_features = torch.matmul(update_mask.T, features_train)
 
         # update of prototypes
+        # print('mask')
+        # print(mask)
+        # print('qqqqqqqqqqqqqqqqqqqqq')
+        # print(f'{Q.view(Q.shape[0], self.n_proto_per_cls, self.n_cls).sum(dim=1)[:, :4]}')
+        # print(f'{Q.view(Q.shape[0], self.n_proto_per_cls, self.n_cls).sum(dim=1)[:, 4:]}')
+        # print(f'{Q.view(Q.shape[0], self.n_proto_per_cls, self.n_cls).sum(dim=1).sum(dim=1)}')
+        # # print(update_mask)
+        # # print(features_train)
+        # # print(update_features)
+        # print('update of prototypes')
         protos = self.protos
+        # print(torch.sum(protos ** 2, dim=1))
         protos = self.proto_m * protos + (1 - self.proto_m) * update_features
 
         self.protos = F.normalize(protos, dim=1, p=2)
@@ -236,17 +249,38 @@ class Palm(nn.Module):
     def distance(
         self, 
         features: torch.Tensor, 
+        distance_p: float = 1, 
+        distance_multiplier: float = 1, 
+        distance_offset: float = 0, 
     ) -> torch.Tensor:
         r"""
         Compute distance of features.
         
         Args:
             features (torch.Tensor): Node feature matrix (n_node * n_feat)
+            distance_p (float, optional): The p value of the p-norm distance. (default: :obj:`1`)
+            distance_multiplier (float, optional): The multiplier of distance. (default: :obj:`1`)
             
         Returns:
             distance (torch.Tensor): Distance of features (n_node * n_node)
         """
-        return torch.exp(torch.div(torch.matmul(features, features.T), self.temp))
+        proto_dis = torch.matmul(features, self.protos.detach().T)
+        distance = torch.exp(torch.div(1 / (torch.matmul(1 / proto_dis ** distance_p, 1 \
+            / proto_dis.T ** distance_p) / self.protos.shape[0]) ** (1 / distance_p), self.temp / 0.03)) * distance_multiplier \
+            + distance_offset
+        
+        # print(proto_dis[:10, :10])
+        # print(distance[:10, :10])
+        distance[distance < 1e-12] = 1e-12
+        distance[distance > 1e30] = 1e30
+        distance[torch.logical_or(torch.isinf(distance), torch.isnan(distance))] = 1e30
+        return distance
+        # return torch.exp(torch.div(torch.matmul( \
+        #     features, torch.matmul( \
+        #     self.protos.detach().T, torch.matmul( \
+        #     self.protos.detach(), \
+        #     features.T))), self.temp))
+        # return torch.exp(torch.div(torch.matmul(features, features.T), self.temp))
     
     def mix(
         self, 
@@ -379,7 +413,7 @@ class Palm(nn.Module):
         loss = - torch.mean(log_prob)
         return loss
 
-    def forward(self, features, labels, train_mask):
+    def forward(self, features, labels, train_mask, weight=None):
         # if labels.dim() > 1:
         #     labels = torch.argmax(labels, dim=1)
         if labels.dim() == 1:
@@ -388,17 +422,20 @@ class Palm(nn.Module):
         loss = 0
 
         g_con = self.__mle_loss(features, labels, train_mask)
-        print(g_con)
-        print(g_con.shape)
+        # print(g_con)
+        # print(g_con.shape)
         loss += g_con
 
         if self.lambda_pcon > 0:
             g_dis = self.lambda_pcon * self.__proto_contra()
-            print(g_dis)
-            print(g_dis.shape)
+            # print(g_dis)
+            # print(g_dis.shape)
             loss += g_dis
 
         self.protos = self.protos.detach()
+        
+        if weight is not None:
+            loss = loss * (weight.unsqueeze(dim=0) * labels).sum(dim=1)
 
         return loss
 
@@ -594,7 +631,7 @@ class MixPalmModel(nn.Module):
 
 class mix(mix_base):
     def parse_args(parser):
-        parser.add_argument('--warmup', type=int, default=5, help='warmup epoch')
+        parser.add_argument('--warmup', type=int, default=20, help='warmup epoch')
         parser.add_argument('--keep_prob', type=float, default=0.01, help='keeping probability') # used in ens
         parser.add_argument('--tau', type=int, default=2, help='temperature in the softmax function when calculating confidence-based node hardness')
         parser.add_argument('--max', action="store_true", help='synthesizing to max or mean num of training set. default is mean') 
@@ -602,16 +639,20 @@ class mix(mix_base):
         
         parser.add_argument('--proto_m', type=float, default=0.99, help='proto_momentum in the palm model')
         parser.add_argument('--temp', type=float, default=0.02, help='temperature in the softmax function in the palm model')
-        parser.add_argument('--lambda_pcon', type=float, default=0.734, help='lambda_pcon in the palm model')
+        parser.add_argument('--lambda_pcon', type=float, default=0.734, help='lambda_pcon in the palm model')  # 1.6
         parser.add_argument('--topk', action="store_false", help='whether to use topk in the palm model')
         parser.add_argument('--k', type=int, default=3, help='k in the palm model')
         parser.add_argument('--epsilon', type=float, default=0.02, help='epsilon in the palm model')
-        parser.add_argument('--n_proto_per_cls', type=int, default=4, help='n_proto_per_cls in the palm model')
-        parser.add_argument('--n_src_per_proto', type=int, default=2, help='n_src_per_proto in the palm model')
-        parser.add_argument('--n_mix_per_src', type=int, default=8, help='n_mix_per_src in the palm model')
+        parser.add_argument('--n_proto_per_cls', type=int, default=6, help='n_proto_per_cls in the palm model')
+        parser.add_argument('--n_src_per_proto', type=int, default=4, help='n_src_per_proto in the palm model')
+        parser.add_argument('--n_mix_per_src', type=int, default=12, help='n_mix_per_src in the palm model')
         
-        parser.add_argument('--distance_influence_ratio', type=float, default=2.30, help='distance influence ratio')
-        parser.add_argument('--alpha', type=float, default=100, help='alpha of beta distribution to sample mixup ratio lam')
+        parser.add_argument('--distance_influence_ratio', type=float, default=1.7, help='distance influence ratio')
+        parser.add_argument('--distance_p', type=float, default=1.7, help='distance p')
+        parser.add_argument('--distance_multiplier', type=float, default=3, help='distance multiplier')
+        parser.add_argument('--distance_offset', type=float, default=5, help='distance offset')
+        
+        parser.add_argument('--alpha', type=float, default=200, help='alpha of beta distribution to sample mixup ratio lam')
 
 
     def __init__(self, args):
@@ -642,10 +683,13 @@ class mix(mix_base):
             n_proto_per_cls = self.args.n_proto_per_cls, 
             n_src_per_proto = self.args.n_src_per_proto, 
             n_mix_per_src = self.args.n_mix_per_src, 
+            # reweight = self.reweight('test', normalize=True)
         )
         
         self.neighbor_dist = self.get_neighbor_dist(n_node=self.data.x.shape[0], \
             edge_index=self.data.edge_index, method="ppr")
+        
+        self.weight = None  # self.reweight('test', normalize=True)
 
 
     def init(self):
@@ -869,8 +913,9 @@ class mix(mix_base):
         return src_idx_all, dst_idx_all
 
 
+    @DeprecationWarning
     def saliency_mixup_ens(self, x, sampling_src_idx, sampling_dst_idx, lam, saliency=None,
-                   dist_kl = None, keep_prob = 0.3):
+        dist_kl = None, keep_prob = 0.3):
         """
         Saliency-based node mixing - Mix node features
         Input:
@@ -910,6 +955,7 @@ class mix(mix_base):
         return lam * new_src + (1-lam) * new_dst
     
 
+    @DeprecationWarning
     @torch.no_grad()
     def neighbor_sampling_ens(total_node, edge_index, sampling_src_idx, sampling_dst_idx,
             neighbor_dist_list, prev_out, train_node_mask=None, iterations=False):
@@ -1031,6 +1077,7 @@ class mix(mix_base):
         return inv_edge_index, dist_kl
     
 
+    @DeprecationWarning
     @torch.no_grad()
     def duplicate_neighbor(self, total_node, edge_index, sampling_src_idx):
         device = edge_index.device
@@ -1070,6 +1117,7 @@ class mix(mix_base):
             return torch.zeros((2, 0), dtype=edge_index.dtype, device=edge_index.device)
 
 
+    @DeprecationWarning
     def mixup_ens(self, x, edge_index, y, epoch, sampling_list=None):
         self.model.classifier.convs[0].temp_weight.register_backward_hook(self.backward_hook)
 
@@ -1081,7 +1129,7 @@ class mix(mix_base):
         sampling_src_idx, sampling_dst_idx = self.sampling_idx_individual_dst(self.class_num_list, sampling_list, self.idx_info, self.device)
         beta = torch.distributions.beta.Beta(2, 2)
         lam = beta.sample((len(sampling_src_idx),) ).unsqueeze(1)
-        ori_saliency = self.saliency[:self.n_sample] if (self.saliency != None) else None
+        ori_saliency = self.saliency[:self.n_sample] if (self.saliency is not None) else None
 
         # Augment nodes
         if epoch > self.args.warmup:
@@ -1103,6 +1151,7 @@ class mix(mix_base):
         return new_x, new_edge_index, new_y
     
 
+    @DeprecationWarning
     def saliency_mixup_sha(self, x, sampling_src_idx, sampling_dst_idx, lam):
         new_src = x[sampling_src_idx.to(x.device), :].clone()
         new_dst = x[sampling_dst_idx.to(x.device), :].clone()
@@ -1111,6 +1160,7 @@ class mix(mix_base):
         return lam * new_src + (1-lam) * new_dst
     
 
+    @DeprecationWarning
     @torch.no_grad()
     def neighbor_sampling_sha(self, total_node, edge_index, sampling_src_idx,
             neighbor_dist_list, train_node_mask=None, iterations=False):
@@ -1196,6 +1246,7 @@ class mix(mix_base):
         return inv_edge_index
 
 
+    @DeprecationWarning
     def mixup_sha(self, x, edge_index, y, epoch, sampling_list=None):
         if sampling_list is None:
             sampling_list = self.sample(self.class_num_list)
@@ -1226,6 +1277,7 @@ class mix(mix_base):
         return new_x, new_edge_index, new_y
 
 
+    @DeprecationWarning
     def mixup_sha_new(self, x, edge_index, y, epoch, sampling_list=None, connect=True, score=None, n_node=None):
         if n_node is None:
             n_node = x.shape[0]
@@ -1265,6 +1317,7 @@ class mix(mix_base):
         return new_x, new_edge_index, new_y
 
 
+    @DeprecationWarning
     def hop(self, x, edge_index, r: int):
         assert r > 0
         adj = SparseTensor(row=edge_index[0], col=edge_index[1],
@@ -1462,7 +1515,7 @@ class mix(mix_base):
         lam: Optional[float]=None, 
         ):
         r"""
-        Mixup edge method used in GraphENS.
+        Mixup edge method used in GraphENS, GraphSHA and ours.
 
         Args:
             x (torch.Tensor): Node feature matrix
@@ -1485,7 +1538,7 @@ class mix(mix_base):
         # If no previous output, use the src neighbor distribution
         # Else, use src neighbor distribution mixed with dst neighbor distribution (ratio decided by KL divergence)
         if lam is not None:  # Our method, mixup src and dst node's class
-            mixed_neighbor_dist = neighbor_dist_list[src] * lam + neighbor_dist_list[dst] * (1 - lam)
+            mixed_neighbor_dist = (1 - lam) * neighbor_dist_list[src] + lam * neighbor_dist_list[dst]
         else:
             if dist_kl is not None:  # Original GraphENS method, keeping the mixed node's class the same as src
                 ratio = F.softmax(torch.cat([dist_kl.new_zeros(dist_kl.size(0),1), -dist_kl], dim=1), dim=1)
@@ -1509,7 +1562,12 @@ class mix(mix_base):
         aug_degree = torch.min(aug_degree, degree[src])
 
         # Sample neighbors
-        new_tgt = torch.multinomial(mixed_neighbor_dist + 1e-12, max_degree)
+        mixed_neighbor_dist[mixed_neighbor_dist < 1e-12] = 1e-12
+        mixed_neighbor_dist[mixed_neighbor_dist > 1e30] = 1e30
+        mixed_neighbor_dist[torch.logical_or(torch.isinf(mixed_neighbor_dist), \
+            torch.isnan(mixed_neighbor_dist))] = 1e30
+        
+        new_tgt = torch.multinomial(mixed_neighbor_dist, max_degree)
         tgt_index = torch.arange(max_degree, device=self.device).unsqueeze(dim=0)
         new_col = new_tgt[(tgt_index - aug_degree.unsqueeze(dim=1) < 0)]
         new_row = (torch.arange(src.size(0), device=self.device) + n_node)
@@ -1568,8 +1626,24 @@ class mix(mix_base):
         # new_y = (1 - d) * y[src] + d * y[dst]
         # new_edge_index = self.mixup_edge_dropout(x=x, edge_index=edge_index, lam=lam, \
         #     src=src, dst=dst, n_node=n_node, connect=connect)
+        embed = self.model(x=x, edge_index=edge_index, y=y)
+        embed = F.normalize(embed, p=2, dim=-1)
+        
         new_edge_index = self.mixup_edge_ens(x=x, edge_index=edge_index, lam=lam, \
-            src=src, dst=dst, n_node=n_node, neighbor_dist_list=neighbor_dist_list / self.palm.distance(x) ** self.args.distance_influence_ratio)  # hyperparameter
+            src=src, dst=dst, n_node=n_node, \
+            neighbor_dist_list=neighbor_dist_list \
+            / self.palm.distance(embed, \
+            distance_p=self.args.distance_p, \
+            distance_multiplier=self.args.distance_multiplier, \
+            distance_offset=self.args.distance_offset) \
+            ** self.args.distance_influence_ratio \
+            )
+        dis = self.palm.distance(embed, \
+            distance_p=self.args.distance_p, \
+            distance_multiplier=self.args.distance_multiplier, \
+            distance_offset=self.args.distance_offset) \
+            ** self.args.distance_influence_ratio
+        self.debug_all(dis[:10, :10])
 
         return new_x, new_edge_index, new_y
     
@@ -1591,7 +1665,7 @@ class mix(mix_base):
         r"""
         Mixup all of :obj:`x`, :obj:`edge_index` and :obj:`y` using GraphENS.
         
-        Args:
+        Args:   
             x (torch.Tensor): Node feature matrix (n_node * n_feat)
             edge (torch.LongTensor): Graph edge index (2 * n_edge)
             y (torch.LongTensor): Graph label matrix (n_node * n_cls)
@@ -1951,11 +2025,11 @@ class mix(mix_base):
             # x_smote, edge_index_smote, y_smote = self.mixup_smote_new(x, edge_index, y, epoch=epoch, sampling_list=1.0, connect=True, score=self.score)
             # x_sha, edge_index_sha, y_sha = self.mixup_sha_new(x, edge_index, y, epoch=epoch, sampling_list=1.0, score=self.score, n_node=x.shape[0] + x_smote.shape[0])
             
-            if epoch > 20:
+            if epoch > self.args.warmup:  # and epoch % 5 != 0:
                 self.lam = self.beta(self.args.alpha)
                 
                 # Update saliency
-                self.model.encoder.convs[0].temp_weight.register_backward_hook(self.backward_hook)
+                self.model.encoder.convs[0].temp_weight.register_full_backward_hook(self.backward_hook)
                 
                 # x_sha, edge_index_sha, y_sha = self.igraphmix(x, edge_index, y, self.lam, self.src, self.dst, n_node=x.shape[0], connect=True)
                 with torch.no_grad():
@@ -2004,6 +2078,8 @@ class mix(mix_base):
         #     embed[self.slice_sha.start:self.slice_sha.stop] = self.hypermix(embed, self.lam, self.src, self.dst)
         
         output = embed
+        # print('embed')
+        # print(torch.sum(output ** 2, dim=1))
 
         if self.training:
             output = self.adjust_output(output=output, epoch=epoch)
@@ -2021,6 +2097,6 @@ class mix(mix_base):
 
 
     def loss(self, output, y):
-        return self.palm(features=output, labels=y, train_mask=self.mask('train'))
+        return self.palm(features=output, labels=y, train_mask=self.mask('train'), weight=self.weight)
         #  + 0.3 * (torch.log(1.000001 - self.model.score_bad)).squeeze(dim=-1)
         # return F.cross_entropy(output, y, reduction='none') - 0.4 * (torch.log(self.model.score)).squeeze(dim=-1) - 0.4 * (torch.log(1.000001 - self.model.score_bad)).squeeze(dim=-1)
