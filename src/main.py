@@ -485,11 +485,11 @@ def neighbor(data, train_edge_mask):
 if args.method in ['ens', 'tam', 'sha']:
     neighbor_dist_list = neighbor(data=data, train_edge_mask=train_edge_mask)
 
-if args.net == 'GCN':
+if args.backbone == 'GCN':
     model = create_gcn(nfeat=dataset.num_features, nhid=args.feat_dim, nclass=n_cls, dropout=args.dropout, nlayer=args.n_layer, has_discriminator=args.method == 'imgagn')
-elif args.net == 'GAT':
+elif args.backbone == 'GAT':
     model = create_gat(nfeat=dataset.num_features, nhid=args.feat_dim, nclass=n_cls, dropout=args.dropout, nlayer=args.n_layer)
-elif args.net == "SAGE":
+elif args.backbone == "SAGE":
     model = create_sage(nfeat=dataset.num_features, nhid=args.feat_dim, nclass=n_cls, dropout=args.dropout, nlayer=args.n_layer)
 else:
     raise NotImplementedError("Not Implemented Architecture!")
@@ -780,7 +780,7 @@ for attr, obj in list(globals().items()):
 
 hyperparameter = dict()
 for arg in vars(args):
-    if arg not in ['method', 'dataset', 'imb_ratio', 'seed', 'net', 'device', 'debug', 'output', 'data_path', 'n_head']:
+    if arg not in ['method', 'dataset', 'imb_ratio', 'seed', 'backbone', 'device', 'debug', 'output', 'data_path', 'n_head']:
         hyperparameter[arg] = getattr(args, arg)
 
 result = {
@@ -793,7 +793,7 @@ result = {
     'imb_ratio': args.imb_ratio,
     'seed': args.seed,
     'device': str(device),
-    'backbone': args.net,
+    'backbone': args.backbone,
     'hyperparameter': hyperparameter,
     'acc': test_acc*100,
     'bacc': test_bacc*100,

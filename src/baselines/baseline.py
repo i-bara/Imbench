@@ -318,7 +318,7 @@ class Baseline:
     def run(self):
         hyperparameter = dict()
         for arg in vars(self.args):
-            if arg not in ['method', 'dataset', 'split', 'imb_ratio', 'seed', 'net', 'device', 'debug', 'output', 'data_path', 'n_head', 'project_name']:
+            if arg not in ['method', 'dataset', 'split', 'imb_ratio', 'seed', 'backbone', 'device', 'debug', 'output', 'data_path', 'n_head', 'project_name']:
                 hyperparameter[arg] = getattr(self.args, arg)
 
         config = {
@@ -328,7 +328,7 @@ class Baseline:
             'imb_ratio': self.args.imb_ratio,
             'seed': self.args.seed,
             'device': str(self.device),
-            'backbone': self.args.net,
+            'backbone': self.args.backbone,
             'hyperparameter': hyperparameter,
         }
 

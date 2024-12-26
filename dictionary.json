@@ -7,6 +7,7 @@
         "c": ["Cora", "CiteSeer"],
         "s": ["chameleon", "squirrel", "Actor"],
         "p": ["PubMed"],
+        "cp": ["Cora", "CiteSeer", "PubMed"],
         "a": ["Amazon-Computers", "Amazon-Photo"],
         "o": ["ogbn-arxiv"]
     },

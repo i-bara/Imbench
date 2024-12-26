@@ -35,16 +35,25 @@ class GNN(nn.Module):
 
         if self.encoder:
             for conv in self.convs:
-                x = conv(x=x, edge_index=edge_index, edge_weight=edge_weight, **kwargs)  # is_add_self_loops=self.is_add_self_loops, 
+                if isinstance(conv, GCNConv):
+                    x = conv(x=x, edge_index=edge_index, edge_weight=edge_weight, **kwargs)  # is_add_self_loops=self.is_add_self_loops,
+                else:
+                    x = conv(x=x, edge_index=edge_index, **kwargs)
                 x = F.relu(x)
                 x = F.dropout(x, p=self.dropout, training=self.training)
         else:
             for conv in self.convs[:-1]:
-                x = conv(x=x, edge_index=edge_index, edge_weight=edge_weight, **kwargs)  # is_add_self_loops=self.is_add_self_loops, 
+                if isinstance(conv, GCNConv):
+                    x = conv(x=x, edge_index=edge_index, edge_weight=edge_weight, **kwargs)  # is_add_self_loops=self.is_add_self_loops,
+                else:
+                    x = conv(x=x, edge_index=edge_index, **kwargs)
                 x = F.relu(x)
                 x = F.dropout(x, p=self.dropout, training=self.training)
                 
-            x = self.convs[-1](x=x, edge_index=edge_index, edge_weight=edge_weight, **kwargs)
+            if isinstance(self.convs[-1], GCNConv):
+                x = self.convs[-1](x=x, edge_index=edge_index, edge_weight=edge_weight, **kwargs)  # is_add_self_loops=self.is_add_self_loops,
+            else:
+                x = self.convs[-1](x=x, edge_index=edge_index, **kwargs)
             # , edge_index
         return x
 
@@ -80,7 +89,7 @@ class GnnModel(nn.Module):
     
 
     def config_classifier(self, n):
-        self.classifier = n(Conv=self.conv_dict[self.args.net], 
+        self.classifier = n(Conv=self.conv_dict[self.args.backbone], 
                               n_feat=self.baseline.n_feat, n_hid=self.args.feat_dim, n_cls=self.baseline.n_cls, 
                               dropout=self.args.dropout, 
                             #   x_dropout=args.x_dropout, 
@@ -151,11 +160,11 @@ class GnnModel(nn.Module):
 class GnnModelWithEncoder(GnnModel):
     def __init__(self, args, baseline):
         super().__init__(args, baseline)
-        self.encoder = GNN(Conv=self.conv_dict[args.net], 
+        self.encoder = GNN(Conv=self.conv_dict[args.backbone], 
                               n_feat=baseline.n_feat, n_hid=args.feat_dim, n_cls=args.feat_dim, 
                               dropout=args.dropout, 
                               n_layer=1, **self.gnn_kwargs)
-        self.classifier = GNN(Conv=self.conv_dict[args.net], 
+        self.classifier = GNN(Conv=self.conv_dict[args.backbone], 
                               n_feat=args.feat_dim, n_hid=args.feat_dim, n_cls=baseline.n_cls, 
                               dropout=args.dropout, 
                               n_layer=args.n_layer - 1, **self.gnn_kwargs)

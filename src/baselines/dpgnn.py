@@ -12,7 +12,7 @@ import numpy as np
 class DpgnnModel(GnnModel):
     def __init__(self, args, baseline):
         super().__init__(args, baseline)
-        self.encoder = GNN(Conv=self.conv_dict[args.net], 
+        self.encoder = GNN(Conv=self.conv_dict[args.backbone], 
                               n_feat=baseline.n_feat, n_hid=args.feat_dim, n_cls=args.feat_dim, 
                               dropout=args.dropout, 
                               n_layer=args.n_layer, **self.gnn_kwargs)

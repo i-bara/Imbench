@@ -116,14 +116,14 @@ class MixModel(nn.Module):
             self.encoder1 = model
         else:
             self.model = False
-            self.encoder1 = EnsGNN(Conv=conv_dict[self.args.net], 
+            self.encoder1 = EnsGNN(Conv=conv_dict[self.args.backbone], 
                                 n_feat=self.baseline.n_feat, n_hid=self.args.feat_dim, n_cls=self.args.feat_dim, 
                                 dropout=self.args.dropout, 
                                 n_layer=self.args.n_layer,
                                 encoder=True)
         assert model is None  # Not used
         
-        self.encoder2 = EnsGNN(Conv=conv_dict[self.args.net], 
+        self.encoder2 = EnsGNN(Conv=conv_dict[self.args.backbone], 
                               n_feat=self.args.feat_dim, n_hid=self.args.feat_dim, n_cls=self.args.feat_dim, 
                               dropout=self.args.dropout, 
                               n_layer=1)
@@ -132,7 +132,7 @@ class MixModel(nn.Module):
                             dropout=self.args.dropout, 
                             n_layer=2)
         
-        self.classifier = EnsGNN(Conv=conv_dict[self.args.net], 
+        self.classifier = EnsGNN(Conv=conv_dict[self.args.backbone], 
                                  n_feat=self.args.feat_dim, n_hid=self.args.feat_dim, n_cls=self.baseline.n_cls, 
                                  dropout=self.args.dropout, 
                                  n_layer=1)

@@ -74,7 +74,7 @@ def parse_args():
     parser.add_argument('--imb_ratio', type=float, default=100, help='imbalance ratio')
 
     # Backbone
-    parser.add_argument('--net', type=str, choices=['GCN', 'GAT', 'SAGE'], default='GCN', help='GNN bachbone')
+    parser.add_argument('--backbone', type=str, choices=['GCN', 'GAT', 'SAGE'], default='GCN', help='GNN bachbone')
     parser.add_argument('--n_layer', type=int, default=2, help='the number of layers')
     parser.add_argument('--feat_dim', type=int, default=256, help='feature dimension')
     # GAT

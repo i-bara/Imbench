@@ -1,3 +1,4 @@
+from .nets import GCNConv
 from .mix_base import mix_base
 from .gnnv3 import GNN, GnnModel
 
@@ -30,20 +31,31 @@ class MmixupGNN(GNN):
 
         if self.encoder:
             for i in range(self.n_layer):
-                x = self.convs[i](x=x, edge_index=edge_index, edge_weight=edge_weight, **kwargs) \
-                    + self.lins[i](x)
+                if isinstance(self.convs[i], GCNConv):
+                    x = self.convs[i](x=x, edge_index=edge_index, edge_weight=edge_weight, **kwargs) \
+                        + self.lins[i](x)
+                else:
+                    x = self.convs[i](x=x, edge_index=edge_index, **kwargs) \
+                        + self.lins[i](x)
                 x = F.relu(x)
                 x = F.dropout(x, p=self.dropout, training=self.training)
                 xs.append(x)
         else:
             for i in range(self.n_layer - 1):
-                x = self.convs[i](x=x, edge_index=edge_index, edge_weight=edge_weight, **kwargs) \
-                    + self.lins[i](x)
+                if isinstance(self.convs[i], GCNConv):
+                    x = self.convs[i](x=x, edge_index=edge_index, edge_weight=edge_weight, **kwargs) \
+                        + self.lins[i](x)
+                else:
+                    x = self.convs[i](x=x, edge_index=edge_index, **kwargs) \
+                        + self.lins[i](x)
                 x = F.relu(x)
                 x = F.dropout(x, p=self.dropout, training=self.training)
                 xs.append(x)
                 
-            x = self.convs[self.n_layer - 1](x=x, edge_index=edge_index, edge_weight=edge_weight, **kwargs)
+            if isinstance(self.convs[self.n_layer - 1], GCNConv):
+                x = self.convs[self.n_layer - 1](x=x, edge_index=edge_index, edge_weight=edge_weight, **kwargs)
+            else:
+                x = self.convs[self.n_layer - 1](x=x, edge_index=edge_index, **kwargs)
 
         xs_b = [x[idx] for x in xs]
         
@@ -53,28 +65,47 @@ class MmixupGNN(GNN):
         
         if self.encoder:
             for i in range(self.n_layer):
-                x = self.convs[i](x=xs[i], edge_index=edge_index, edge_weight=edge_weight, **kwargs) \
-                    + self.lins[i](x_m)
+                if isinstance(self.convs[i], GCNConv):
+                    x = self.convs[i](x=xs[i], edge_index=edge_index, edge_weight=edge_weight, **kwargs) \
+                        + self.lins[i](x_m)
+                else:
+                    x = self.convs[i](x=xs[i], edge_index=edge_index, **kwargs) \
+                        + self.lins[i](x_m)
                 x = F.relu(x)
                 x = F.dropout(x, p=self.dropout, training=self.training)
-                x_b = self.convs[i](x=xs_b[i], edge_index=edge_index_b, edge_weight=edge_weight, **kwargs) \
-                    + self.lins[i](x_m)
+                if isinstance(self.convs[i], GCNConv):
+                    x_b = self.convs[i](x=xs_b[i], edge_index=edge_index_b, edge_weight=edge_weight, **kwargs) \
+                        + self.lins[i](x_m)
+                else:
+                    x_b = self.convs[i](x=xs_b[i], edge_index=edge_index_b, **kwargs) \
+                        + self.lins[i](x_m)
                 x_b = F.relu(x_b)
                 x_m = (1 - lam) * x + lam * x_b
                 x_m = F.dropout(x_m, p=self.dropout, training=self.training)
         else:
             for i in range(self.n_layer - 1):
-                x = self.convs[i](x=xs[i], edge_index=edge_index, edge_weight=edge_weight, **kwargs) \
-                    + self.lins[i](x_m)
+                if isinstance(self.convs[i], GCNConv):
+                    x = self.convs[i](x=xs[i], edge_index=edge_index, edge_weight=edge_weight, **kwargs) \
+                        + self.lins[i](x_m)
+                else:
+                    x = self.convs[i](x=xs[i], edge_index=edge_index, **kwargs) \
+                        + self.lins[i](x_m)
                 x = F.relu(x)
                 x = F.dropout(x, p=self.dropout, training=self.training)
-                x_b = self.convs[i](x=xs_b[i], edge_index=edge_index_b, edge_weight=edge_weight, **kwargs) \
-                    + self.lins[i](x_m)
+                if isinstance(self.convs[i], GCNConv):
+                    x_b = self.convs[i](x=xs_b[i], edge_index=edge_index_b, edge_weight=edge_weight, **kwargs) \
+                        + self.lins[i](x_m)
+                else:
+                    x_b = self.convs[i](x=xs_b[i], edge_index=edge_index_b, **kwargs) \
+                        + self.lins[i](x_m)
                 x_b = F.relu(x_b)
                 x_m = (1 - lam) * x + lam * x_b
                 x_m = F.dropout(x_m, p=self.dropout, training=self.training)
                 
-            x_m = self.convs[self.n_layer - 1](x=x_m, edge_index=edge_index, edge_weight=edge_weight, **kwargs)
+            if isinstance(self.convs[self.n_layer - 1], GCNConv):
+                x_m = self.convs[self.n_layer - 1](x=x_m, edge_index=edge_index, edge_weight=edge_weight, **kwargs)
+            else:
+                x_m = self.convs[self.n_layer - 1](x=x_m, edge_index=edge_index, **kwargs)
         
         return x_m
 

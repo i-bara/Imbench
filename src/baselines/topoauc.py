@@ -23,7 +23,7 @@ class TopoaucModel(nn.Module):
             'SAGE': SAGEConv,
         }
 
-        self.encoder = GNN(Conv=conv_dict[self.args.net], 
+        self.encoder = GNN(Conv=conv_dict[self.args.backbone], 
                                 n_feat=self.baseline.n_feat, n_hid=self.args.feat_dim, n_cls=self.baseline.n_cls, 
                                 dropout=self.args.dropout, 
                                 n_layer=self.args.n_layer,
