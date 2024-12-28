@@ -1,3 +1,4 @@
+from typing import List, Tuple, Dict, Optional, Union, Any, Callable, Iterable, Sequence, Set, Mapping
 import torch
 import numpy as np
 import random
@@ -130,6 +131,33 @@ def split_same(class_num_list, indices, inv_indices, imb_ratio, n_cls, n, keep=0
     class_num_list_lt = []
     for i in range(n_cls):
         class_num_list_lt.append(min(round(n / n_cls), class_num_list[i].item() - keep))
+    class_num_list_lt = torch.tensor(class_num_list_lt)
+    return class_num_list_lt
+
+
+def split_natural(
+    class_num_list: List[int], 
+    indices: torch.LongTensor, 
+    inv_indices: torch.LongTensor, 
+    imb_ratio: float, 
+    n_cls: int, 
+    n: float,
+) -> torch.LongTensor:
+    r"""
+    Split data into two parts with the natural number of nodes in each class.
+    
+    Args:
+        class_num_list (List[int]): Number of nodes in each class.
+        indices (torch.LongTensor): Indices of classes.
+        inv_indices (torch.LongTensor): Inverse indices of classes.
+        imb_ratio (float): Imbalance ratio.
+        n_cls (int): Number of classes.
+        n (float): Splitted number of nodes.
+    
+    Returns:
+        torch.LongTensor: Splitted number of nodes in each class.
+    """
+    class_num_list_lt = [min(round(n / n_cls), class_num_list[c].item()) for c in range(n_cls)]
     class_num_list_lt = torch.tensor(class_num_list_lt)
     return class_num_list_lt
 
@@ -380,23 +408,23 @@ def get_natural_split(data, imb_ratio, train_ratio, val_ratio):
     class_num_list, indices, inv_indices = sort(data=data)
 
     # train
-    class_num_list_train = split_same(class_num_list=class_num_list, indices=indices, inv_indices=inv_indices, \
-                          imb_ratio=imb_ratio, n_cls=data.y.max().item() + 1, n=data.y.shape[0] * train_ratio)
+    class_num_list_test = split_same(class_num_list=class_num_list, indices=indices, inv_indices=inv_indices, \
+                          imb_ratio=imb_ratio, n_cls=data.y.max().item() + 1, n=data.y.shape[0] * (1 - train_ratio - val_ratio))
 
     data_mask = torch.ones(data.y.shape[0], dtype=torch.bool, device=data.y.device)
 
-    data_train_mask = choose(class_num_list, class_num_list_train, indices, data, data_mask, choose_deg=None, keep=20)  # At least 20 for val and test
+    data_test_mask = choose(class_num_list, class_num_list_test, indices, data, data_mask, choose_deg=None, keep=20)  # At least 20 for val and test
 
     # val
     class_num_list_val = split_same(class_num_list=class_num_list, indices=indices, inv_indices=inv_indices, \
                           imb_ratio=imb_ratio, n_cls=data.y.max().item() + 1, n=data.y.shape[0] * val_ratio)
 
-    data_mask = data_mask & torch.logical_not(data_train_mask)
+    data_mask = data_mask & torch.logical_not(data_test_mask)
 
     data_val_mask = choose(class_num_list, class_num_list_val, indices, data, data_mask, choose_deg=None, keep=10)  # At least 10 for test
 
     # test
-    data_test_mask = data_mask & torch.logical_not(data_val_mask)
+    data_train_mask = data_mask & torch.logical_not(data_val_mask)
 
     return data_train_mask, data_val_mask, data_test_mask
 
