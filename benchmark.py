@@ -148,7 +148,7 @@ if __name__ == '__main__':
                         config[key] = dictionary[key]["all"]
                 default = {
                     'method': 'vanilla',
-                    'net': 'GCN',
+                    'backbone': 'GCN',
                     
                     'dataset': 'Cora',
                     'split': 'lt',
